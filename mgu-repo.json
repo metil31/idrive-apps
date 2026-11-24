@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "components": [
+    {
+      "id": "iconix_sounds",
+      "kind": "app",
+      "path": "projects/sound-drive/apps/iconix_sounds",
+      "mguHmi": ["ID7"],
+      "build": {
+        "python": "projects/sound-drive/kit/tools/build.py",
+        "args": ["{id}"],
+        "sdk": "projects/sound-drive/oap-sdk",
+        "output": "projects/sound-drive/dist/{id}@{version}.tgz",
+        "shared": [
+          "projects/sound-drive/LICENSE",
+          "projects/sound-drive/kit/runtime",
+          "projects/sound-drive/kit/platform",
+          "projects/sound-drive/kit/localization",
+          "projects/sound-drive/kit/tools/pack_data.py",
+          "projects/sound-drive/kit/tools/localize.py",
+          "projects/sound-drive/kit/tools/locale-revisions.json",
+          "projects/sound-drive/kit/tools/oapgen"
+        ]
+      }
+    },
+    {
+      "id": "speed_limit",
+      "kind": "app",
+      "path": "projects/speed-limit/apps/speed_limit",
+      "mguHmi": ["ID7"],
+      "build": {
+        "python": "projects/speed-limit/kit/tools/build.py",
+        "args": ["{id}"],
+        "sdk": "projects/speed-limit/oap-sdk",
+        "output": "projects/speed-limit/dist/{id}@{version}.tgz",
+        "shared": [
+          "projects/speed-limit/LICENSE",
+          "projects/speed-limit/LICENSE.MIT",
+          "projects/speed-limit/kit/runtime",
+          "projects/speed-limit/kit/platform",
+          "projects/speed-limit/kit/localization",
+          "projects/speed-limit/kit/tools/pack_data.py",
+          "projects/speed-limit/kit/tools/localize.py",
+          "projects/speed-limit/kit/tools/locale-revisions.json",
+          "projects/speed-limit/kit/tools/oapgen"
+        ]
+      }
+    }
+  ],
+  "tools": [
+    {
+      "id": "iconix-audiod",
+      "path": "projects/sound-drive/tools/iconix-audiod",
+      "mguHmi": ["ID7"]
+    }
+  ]
+}

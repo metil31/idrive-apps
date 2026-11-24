@@ -1,0 +1,28 @@
+{
+  "id": "iconix-audiod",
+  "kind": "tool",
+  "version": "1.0.8",
+  "title": "Sound Drive Audio",
+  "description": "Serviciu audio experimental pentru Sound Drive. Generează sunetul de motor și îl redă prin SmartX sau ALSA.",
+  "mguHmi": ["ID7", "ID8"],
+  "optional": true,
+  "uninstallable": true,
+  "files": [
+    { "path": "iconix-audiod.js", "mode": "0644" },
+    { "path": "engine.js", "mode": "0644" },
+    { "path": "iconix-audiod.sh", "mode": "0755" },
+    { "path": "synth.js", "mode": "0644" },
+    { "path": "profiles.js", "mode": "0644" },
+    { "path": "alsa_play.py", "mode": "0755" }
+  ],
+  "units": [
+    { "name": "iconix-audiod.service" }
+  ],
+  "enable": [
+    { "unit": "iconix-audiod.service", "target": "oapcontroller.service" }
+  ],
+  "dropins": [],
+  "recmgr": ["iconix-audiod"],
+  "restart": ["iconix-audiod.service"],
+  "keepRunning": true
+}

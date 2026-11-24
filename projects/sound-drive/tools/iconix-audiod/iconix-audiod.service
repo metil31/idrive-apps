@@ -1,0 +1,29 @@
+# Sound Drive audio service, installed from the Store (tools/iconix-audiod/component.json).
+# Aufbau wie idrive7-renderd.service (kit/renderd/prebuilt) aus idrive7-apps.
+[Unit]
+Description=Sound Drive audio service (experimental)
+After=oapcontroller.service
+RequiresMountsFor=/var/opt
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=root
+# Socket-Ordner /run/iconix-audiod (die App verbindet sich zu /run/iconix-audiod/audiod.sock)
+RuntimeDirectory=iconix-audiod
+RuntimeDirectoryMode=0755
+ExecStart=/bin/sh /var/opt/iconix-audiod/current/iconix-audiod.sh
+Restart=always
+RestartSec=3
+# Nicht vor der Bedienoberfläche: ohne Slice landet ein Dienst in system.slice, die etwa das dreifache Gewicht der
+# Oberfläche hat und das Hochfahren bremst (gemessen in robertnisipeanu/mgu-store #372). Vorrang gibt es nur, solange Ton
+# läuft: Echtzeit-Priorität, sonst Nice (beides setzt alsa_play.py).
+Slice=standard.slice
+# Echtzeit-Priorität für den Player (alsa_play.py setzt SCHED_RR selbst): erlauben, auch falls nicht als root
+LimitRTPRIO=10
+# Eigenes Abspielkommando oder ALSA-Gerät hier setzen, falls die automatische Suche nicht passt:
+# Environment=ICONIX_DEVICE=default
+# Environment=ICONIX_PLAYER=aplay -q -t raw -f S16_LE -r {rate} -c 2 -
+
+[Install]
+WantedBy=oapcontroller.service
