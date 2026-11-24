@@ -1,0 +1,315 @@
+{
+  "id": "iconix_sounds",
+  "title": "Sound Drive",
+  "description": "Sunet virtual de motor, în funcție de turație și sarcină. Redare prin difuzoarele mașinii, cu opt profiluri. Necesită Sound Drive Audio.",
+  "version": "1.0.9",
+  "language": "ro",
+  "license": "MIT",
+  "vendor": "custom",
+  "loggingId": "ICXS",
+  "iconGlyph": "engine",
+  "mguHmi": ["ID7", "ID8"],
+  "autostart": true,
+  "requires": {
+    "iconix-audiod": "1.0.8"
+  },
+  "signals": {
+    "de.bmw.infotainment.vehicle.CDS": {
+      "statusEngineSpeed2": "s"
+    },
+    "de.bmw.infotainment.vehicle.Vehicle2": {
+      "statusCarSpeed2": "s"
+    },
+    "de.bmw.infotainment.drivingexcitement.FES": {
+      "statusActualValueTorque2": "s",
+      "statusFESVehicleDynamicSwitchHMI": "s",
+      "_optional": "Motormoment als Lastquelle und Fahrmodus (ohne: Gaspedal oder Drehzahlanstieg, Sound wie Comfort)"
+    },
+    "de.bmw.powertrain.AcceleratorPedal": {
+      "AngleAcceleratorPedal": "s",
+      "_optional": "Gaspedal als Lastquelle (Skalierung unbestätigt)"
+    },
+    "org.genivi.am.commandinterface.CommandControl": {
+      "_instances": "1",
+      "_methods": [
+        "connect",
+        "disconnect",
+        "getListMainConnections",
+        "getListMainSources",
+        "getListMainSinks",
+        "getListSourceClasses",
+        "getListMainSourceSoundProperties"
+      ],
+      "_optional": "Ton auf den Fahrzeuglautsprechern (Audiomanager-Verbindung)"
+    },
+    "org.genivi.am.routinginterface.RoutingControlObserver": {
+      "_instances": "1",
+      "_methods": [
+        "hookSourceAvailablityStatusChange"
+      ],
+      "_optional": "CarLife-Quellen als verfügbar melden"
+    }
+  },
+  "screens": [
+    {
+      "name": "MAIN",
+      "kind": "canvas",
+      "title": "Sound Drive",
+      "barEqual": true,
+      "buttons": [
+        ["BTN_PROFILE", "Sound wechseln"],
+        ["BTN_MUTE", "Stumm / Ton an"],
+        ["BTN_TEST", "Testsound"],
+        ["BTN_DIAG", "Audio-Diagnose"],
+        ["BTN_SETTINGS", "Einstellungen"]
+      ]
+    }
+  ],
+  "settings": [
+    {
+      "key": "enabled",
+      "label": "Sound aktiv",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "key": "profile",
+      "label": "Sound-Profil",
+      "type": "choice",
+      "default": "turbo4",
+      "aliases": {"diesel4": "turbo4", "turbo4s": "turbo4"},
+      "options": [
+        ["turbo4", "Power Four"],
+        ["supra", "Supra (Reihensechser)"],
+        ["boxer", "Flat Four (Boxer)"],
+        ["boxer6", "Flat Six (Boxer)"],
+        ["turbo5", "Rally Five (Fuenfzylinder)"],
+        ["v8", "Muscle V8"],
+        ["v10", "Track V10"],
+        ["v12", "Grand V12"]
+      ]
+    },
+    {
+      "key": "volume",
+      "label": "Lautstaerke",
+      "type": "choice",
+      "default": 80,
+      "options": [
+        [0, "0 %"],
+        [5, "5 %"],
+        [10, "10 %"],
+        [15, "15 %"],
+        [20, "20 %"],
+        [25, "25 %"],
+        [30, "30 %"],
+        [35, "35 %"],
+        [40, "40 %"],
+        [45, "45 %"],
+        [50, "50 %"],
+        [55, "55 %"],
+        [60, "60 %"],
+        [65, "65 %"],
+        [70, "70 %"],
+        [75, "75 %"],
+        [80, "80 %"],
+        [85, "85 %"],
+        [90, "90 %"],
+        [95, "95 %"],
+        [100, "100 %"]
+      ]
+    },
+    {
+      "key": "intensity",
+      "label": "Auspraegung",
+      "type": "choice",
+      "default": 70,
+      "options": [
+        [30, "Dezent"],
+        [50, "Mittel"],
+        [70, "Kraeftig"],
+        [90, "Stark"],
+        [100, "Maximal"]
+      ]
+    },
+    {
+      "key": "sport",
+      "label": "Sport-Boost (+30 %)",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "key": "muteParked",
+      "label": "Im Stand stumm",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "key": "duck",
+      "label": "Bei Telefon/Ansagen leiser",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "key": "knobMusic",
+      "label": "Lautstaerkeknopf regelt die Musik",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "key": "followMode",
+      "label": "Sound folgt dem Fahrmodus (Eco dezent, Sport aggressiv)",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "key": "speedVol",
+      "label": "Lauter bei hohem Tempo",
+      "type": "choice",
+      "default": 4,
+      "options": [
+        [0, "Aus"],
+        [2, "Leicht (+2 dB)"],
+        [4, "Mittel (+4 dB)"],
+        [6, "Stark (+6 dB)"]
+      ]
+    },
+    {
+      "key": "startSound",
+      "label": "Startsound beim Motorstart",
+      "type": "bool",
+      "default": true
+    },
+    {
+      "key": "bassDb",
+      "label": "Bass (Droehnen)",
+      "type": "choice",
+      "default": 0,
+      "group": "Klang anpassen",
+      "options": [
+        [-6, "-6 dB"],
+        [-4, "-4 dB"],
+        [-2, "-2 dB"],
+        [0, "Profil"],
+        [2, "+2 dB"],
+        [4, "+4 dB"],
+        [6, "+6 dB"]
+      ]
+    },
+    {
+      "key": "bark",
+      "label": "Auspuff-Bellen",
+      "type": "choice",
+      "default": 100,
+      "group": "Klang anpassen",
+      "options": [
+        [50, "50 %"],
+        [75, "75 %"],
+        [100, "Profil"],
+        [125, "125 %"],
+        [150, "150 %"]
+      ]
+    },
+    {
+      "key": "narrow",
+      "label": "Schmale Ansicht (Platz fuer das Seitenfenster)",
+      "type": "bool",
+      "default": false
+    },
+    {
+      "key": "maxTorque",
+      "label": "Max. Drehmoment",
+      "type": "choice",
+      "default": 400,
+      "options": [
+        [250, "250 Nm"],
+        [300, "300 Nm"],
+        [350, "350 Nm"],
+        [400, "400 Nm (220d)"],
+        [450, "450 Nm"],
+        [500, "500 Nm"],
+        [700, "700 Nm"]
+      ],
+      "group": "Motor anpassen"
+    },
+    {
+      "key": "carIdle",
+      "label": "Leerlaufdrehzahl",
+      "type": "choice",
+      "default": 800,
+      "options": [
+        [650, "650"],
+        [700, "700"],
+        [750, "750"],
+        [800, "800"],
+        [850, "850"],
+        [900, "900"]
+      ],
+      "group": "Motor anpassen"
+    },
+    {
+      "key": "carRedline",
+      "label": "Abregeldrehzahl",
+      "type": "choice",
+      "default": 4800,
+      "options": [
+        [4200, "4200"],
+        [4500, "4500"],
+        [4800, "4800 (Diesel)"],
+        [5200, "5200"],
+        [6000, "6000"],
+        [6500, "6500"],
+        [7000, "7000"]
+      ],
+      "group": "Motor anpassen"
+    },
+    {
+      "key": "route",
+      "label": "Tonweg (zum Testen)",
+      "type": "choice",
+      "default": "overlay",
+      "options": [
+        ["overlay", "1 Overlay-Mix (Musik laeuft weiter)"],
+        ["carlife", "2 CarLife exklusiv (Musik pausiert)"],
+        ["carlifeNav", "3 CarLife-Navi-Mix"],
+        ["overlayMain", "4 Overlay auf MainSink"],
+        ["carlifeMain", "5 CarLife auf MainSink"],
+        ["carplay", "6 CarPlay-Kanal (ohne Audiomanager)"],
+        ["alsa", "7 ALSA direkt (Ausgabegeraet unten)"]
+      ],
+      "group": "Experten"
+    },
+    {
+      "key": "alsaDevice",
+      "label": "Ausgabegeraet (nur Tonweg 7)",
+      "type": "choice",
+      "default": "auto",
+      "options": [
+        ["auto", "Automatisch"],
+        ["default", "default"],
+        ["plughw:0,0", "plughw:0,0"],
+        ["plughw:0,1", "plughw:0,1"],
+        ["scan1", "Geraet 1 (Diagnose)"],
+        ["scan2", "Geraet 2 (Diagnose)"],
+        ["scan3", "Geraet 3 (Diagnose)"],
+        ["scan4", "Geraet 4 (Diagnose)"],
+        ["scan5", "Geraet 5 (Diagnose)"],
+        ["scan6", "Geraet 6 (Diagnose)"]
+      ],
+      "group": "Experten",
+      "when": {"route": "alsa"}
+    },
+    {
+      "key": "loadSource",
+      "label": "Lastquelle",
+      "type": "choice",
+      "default": "auto",
+      "options": [
+        ["auto", "Automatisch"],
+        ["torque", "Motormoment"],
+        ["pedal", "Gaspedal"],
+        ["rpm", "Drehzahlanstieg"]
+      ],
+      "group": "Experten"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "id": "drive_coach",
+  "title": "Fahrstil-Coach",
+  "description": "Bewertet jede Fahrt: Vorausschau, Beschleunigen, Kurven, Ruhe, Drehzahl, Motorschonung und Leerlauf, mit Wasserglas, Live-Tipps, Verlauf, Level und Abzeichen",
+  "version": "1.0.3",
+  "vendor": "custom",
+  "loggingId": "DCO1",
+  "iconGlyph": "coach",
+  "mguHmi": ["ID7", "ID8"],
+  "autostart": true,
+  "signals": {
+    "de.bmw.infotainment.vehicle.CDS": {
+      "statusEngineSpeed2": "rs",
+      "statusEngineTemperature": "rs"
+    },
+    "de.bmw.infotainment.vehicle.CDS2": {
+      "statusLongitudinalAccelerationMassCenter": "rs",
+      "statusLateralAccelerationMassCenter": "rs"
+    },
+    "de.bmw.infotainment.vehicle.Vehicle2": {
+      "statusCarSpeed2": "rs"
+    },
+    "de.bmw.infotainment.drivingexcitement.FES": {
+      "_optional": "Drehmoment (Last) und Fahrmodus fuer den Auto-Modus",
+      "statusActualValueTorque2": "rs",
+      "statusFESVehicleDynamicSwitchHMI": "rs"
+    }
+  },
+  "screens": [
+    {
+      "name": "MAIN",
+      "kind": "canvas",
+      "title": "Fahrstil-Coach",
+      "buttons": [
+        ["BTN_ACTION", "Fahrt beenden"],
+        ["BTN_PAGE", "Naechste Seite"],
+        ["BTN_PREV", "Vorherige Seite"],
+        ["BTN_SETTINGS", "Einstellungen"]
+      ]
+    }
+  ],
+  "settings": [
+    {"key": "mode", "label": "Coach-Modus", "type": "choice", "default": "auto",
+     "options": [["auto", "Auto (nach Fahrmodus)"], ["eco", "Eco (sparsam)"], ["balanced", "Ausgewogen"], ["sport", "Sportlich, aber sauber"]]},
+    {"key": "engine", "label": "Motor", "type": "choice", "default": "diesel",
+     "options": [["diesel", "Diesel"], ["petrol", "Benziner"]]},
+    {"key": "glass", "label": "Wasserglas-Empfindlichkeit", "type": "choice", "default": "mid",
+     "options": [["low", "Niedrig"], ["mid", "Mittel"], ["high", "Hoch"]]},
+    {"key": "tips", "label": "Live-Tipps anzeigen", "type": "bool", "default": true},
+    {"key": "tripEnd", "label": "Fahrtende nach Stillstand", "type": "number", "unit": "min", "default": 3, "steps": [2, 3, 5, 10]},
+    {"key": "coldOil", "label": "Motor kalt unter (Oel)", "type": "number", "unit": "°C", "default": 70, "steps": [50, 60, 70, 80]},
+    {"key": "coldRpm", "label": "Drehzahlgrenze kalt", "type": "number", "unit": "U/min", "default": 2500, "steps": [2000, 2500, 3000, 3500]},
+    {"key": "maxTorque", "label": "Max. Drehmoment des Motors", "type": "number", "unit": "Nm", "default": 400, "steps": [250, 300, 350, 400, 450, 500, 550, 600, 700]},
+    {"key": "theme", "label": "Farbschema", "type": "choice", "default": "bmw",
+     "options": [["bmw", "BMW Blau (iDrive)"], ["m_red", "M Rot"], ["m_tricolour", "M Tricolour"], ["ice", "Eisweiss"], ["amber", "Nacht-Bernstein"]]},
+    {"key": "layout", "label": "Bildschirm-Layout", "type": "choice", "default": "full",
+     "options": [["full", "Vollbild"], ["standard", "Standard"]]},
+    {"key": "renderer", "label": "Renderer", "type": "choice", "default": "auto",
+     "options": [["auto", "GPU 60 fps (Standard)"], ["software", "Software"]]},
+    {"key": "demo", "label": "Demo-Daten", "type": "choice", "default": "auto",
+     "options": [["auto", "Auto"], ["on", "Immer"], ["off", "Nie"]]}
+  ]
+}

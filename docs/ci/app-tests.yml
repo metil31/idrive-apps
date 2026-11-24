@@ -1,0 +1,53 @@
+name: App tests
+
+# Copiază acest fișier în .github/workflows/ pentru a activa verificările în GitHub Actions.
+
+# Synthetische Tests für Fahrstil-Coach, Iconix Sounds und die Kit-Laufzeit (ohne SDK, Renderer oder Auto).
+on:
+  pull_request:
+  push:
+    paths:
+      - 'apps/**'
+      - 'tools/**'
+      - 'kit/**'
+      - '.github/workflows/app-tests.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'   # wie mgu-python auf dem Head Unit
+      - name: Python-Dateien kompilieren (Tippfehler = kein Ton im Auto)
+        run: python3 -m py_compile tools/iconix-audiod/alsa_play.py kit/tools/build.py
+      - name: App-Kopien von Synth, Engine und Profilen entsprechen dem Tool
+        run: |
+          for f in synth.js engine.js profiles.js; do cmp tools/iconix-audiod/$f apps/iconix_sounds/$f; done
+      - run: node kit/tools/test_runtime.js
+      - run: node kit/tools/test_drive_coach.js
+      - run: node kit/tools/test_iconix_route.js
+      - run: node kit/tools/test_autostart.js
+      - run: node kit/tools/test_iconix_chaos.js
+      - run: python3 kit/tools/test_alsa_play.py
+      - name: Ende-zu-Ende (Dienst + Player als Kindprozess)
+        run: ICONIX_PYTHON=python3 node kit/tools/test_engine_e2e.js
+      - name: Dienst als Prozess über den Socket
+        run: ICONIX_PYTHON=python3 node kit/tools/test_daemon.js
+      - name: Belastungstest Klang (alle Profile, Fahrmodi, Lautstärken, Fahrsituationen)
+        run: node kit/tools/iconix_soak.js
+      - name: Knackser-Suche
+        run: |
+          node kit/tools/iconix_popscan.js | tee popscan.txt
+          ! grep -E '^[a-z0-9]+ +[1-9][0-9]* Pops' popscan.txt
+      - run: python3 kit/tools/test_fit_to_unit.py
+      - run: python3 kit/tools/test_id8_ui.py
+      - name: Pachetul românesc, identificatorii și diacriticele
+        run: python3 kit/tools/test_romanian.py
