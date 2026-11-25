@@ -102,6 +102,8 @@ WIDGETS = {
     # settings use it in an LT_State_Wide); the 70/30 one-row columns cut both off
     'tworow':    ('button', 'LT_Button_2Row_2Text', {2: 1, 3: 2}),
     'checkbox':  ('checkBox', 'LT_CheckBox_1Row', {2: 1, 3: 2}),
+    'dropdown':  ('dropDownMenu', 'LT_DropDownMenu_1Row_2Col3070', {2: 1, 3: 3}),
+    'slider':    ('slider', 'LT_Slider_LeftJustified_Fill_Steps', {2: 1, 3: 3}),
     'scroll':    ('label', 'LT_ScrollLabel_UnlimitedRow_TextDyn', {2: 1, 3: 1}),
     'laptimer':  ('label', 'LT_Label_Laptimer', {3: 0}),
 }
@@ -332,6 +334,20 @@ def build_ui(spec, language='en', hmi='ID7'):
             for it in scr.get('items', []):
                 kindi, name = it[0], it[1]
                 label = it[2] if len(it) > 2 else ''
+                if kindi == 'dropdown' and not id8:
+                    items.append(comp(kindi, name, rows=[{'ItemText': {'value': hmi_text(o), 'type': 'Text'}} for o in it[3]],
+                                      cells={'HeaderText': {'value': hmi_text(label), 'type': 'Text'},
+                                             'SelectedItem': {'value': 0, 'type': 'UInt'}}))
+                    continue
+                if kindi == 'slider' and not id8:
+                    n = int(it[3])
+                    items.append(comp(kindi, name, rows=[{
+                        'TextDescription': {'value': hmi_text(label), 'type': 'Text'},
+                        'TextDescriptionVisible': {'value': True, 'type': 'Bool'},
+                        'MiddleIndicatorVisible': {'value': False, 'type': 'Bool'},
+                        'MinValue': {'value': 0, 'type': 'SInt'}, 'MaxValue': {'value': n, 'type': 'SInt'},
+                        'NumberOfSteps': {'value': n, 'type': 'SInt'}}]))
+                    continue
                 if kindi == 'twocol':
                     rows = [{'Text1stCol': {'value': label, 'type': 'Text'}, 'Text2ndCol': {'value': '', 'type': 'Text'}}]
                 elif kindi in ('graphic',):
@@ -600,11 +616,14 @@ def build(app_id, language=None, preview_only=False):
         print('  this unit has no %s - built without it: %s' % (what, loses))
     xml, uidesc, strings, state_ids = build_ui(spec, language)
     unicode_resources(uidesc, strings, language)
-    xml8, uidesc8, strings8, state_ids8 = build_ui(spec, language, 'ID8')
-    # its own slot names: the iDrive 7 description numbers more cells (the drop-downs' rows)
-    unicode_resources(uidesc8, strings8, language, 'SID_CN_STATIC8_')
-    assert state_ids8 == state_ids, 'iDrive 8 description must keep the iDrive 7 state ids'
-    strings.update(strings8)
+    descriptions = [('ID7', xml, uidesc)]
+    if 'ID8' in spec.get('mguHmi', ('ID7', 'ID8')):
+        xml8, uidesc8, strings8, state_ids8 = build_ui(spec, language, 'ID8')
+        # Its own slot names: the iDrive 7 description numbers more cells (the drop-downs' rows).
+        unicode_resources(uidesc8, strings8, language, 'SID_CN_STATIC8_')
+        assert state_ids8 == state_ids, 'iDrive 8 description must keep the iDrive 7 state ids'
+        strings.update(strings8)
+        descriptions.append(('ID8', xml8, uidesc8))
     if len(strings) > 1024:
         raise ValueError('HMI string bundle exceeds the verified 1024-resource budget (iDrive 7 + 8)')
     for lang, tbl in spec.get('strings', {}).items():
@@ -770,11 +789,12 @@ def build(app_id, language=None, preview_only=False):
     # MainApp installs the uiDescription and variantGroups for the HMI the car reports (ID7 / ID8)
     pj['application']['uiDescriptions'] = [{'applicationFilePath': './uiDescriptions/%s/application.xml' % h,
                                             'uiDescriptionFilePath': './uiDescriptions/%s/uiDescription.json' % h, 'hmi': [h]}
-                                           for h in ('ID7', 'ID8')]
+                                           for h, _, _ in descriptions]
     pj['application']['variantGroups'] = [{'stringsPath': './variantGroups/Common/texts',
-                                           'resourcesPath': './variantGroups/Common/images', 'hmi': ['ID7', 'ID8'], 'brands': ['BMW']}]
+                                           'resourcesPath': './variantGroups/Common/images',
+                                           'hmi': [h for h, _, _ in descriptions], 'brands': ['BMW']}]
     json.dump(pj, open(os.path.join(pr, 'application.json'), 'w', encoding='utf-8', newline='\n'), indent=2)
-    for h, x, d in (('ID7', xml, uidesc), ('ID8', xml8, uidesc8)):
+    for h, x, d in descriptions:
         os.makedirs(os.path.join(pr, 'uiDescriptions', h))
         open(os.path.join(pr, 'uiDescriptions', h, 'application.xml'), 'w', encoding='utf-8', newline='\n').write(x)
         json.dump(d, open(os.path.join(pr, 'uiDescriptions', h, 'uiDescription.json'), 'w', encoding='utf-8', newline='\n'), indent=1)

@@ -5,6 +5,12 @@ const { AlbumArt } = require('./album-art');
 
 const HUD_TEXTURE = { w: 200, h: 56, scale: 1 };
 const CLUSTER_TEXTURE = { w: 250, h: 68, scale: 2 };
+const PLACEMENT = {
+    hud: { x: { key: 'positionX', base: 0, min: -180, max: 180 }, y: { key: 'positionY', base: 350, min: 110, max: 440 },
+        size: 'hudSize' },
+    cluster: { x: { key: 'clusterX', base: 0, min: -300, max: 300 }, y: { key: 'clusterY', base: 85, min: 45, max: 440 },
+        size: 'clusterSize' },
+};
 const HUD = { x: 0, y: 0, w: 800, h: 480 };
 const TITLE = { align: 'center', font: 'bold', literal: true };
 const ARTIST = { align: 'center', font: 'label', literal: true };
@@ -51,6 +57,10 @@ function fitText(cv, text, size, width, opts) {
 
 function bounded(value, fallback, min, max) {
     return Number.isFinite(value) ? Math.round(Math.max(min, Math.min(max, value))) : fallback;
+}
+
+function position(settings, axis) {
+    return bounded(settings.get(axis.key), axis.base, axis.min, axis.max);
 }
 
 function place(area, cx, cy, scale, texture) {
@@ -118,9 +128,10 @@ class MediaOutput {
         const cover = this.artwork.get(track, settings.get('albumArt'));
         const selected = settings.get('show');
         const show = selected === 'cluster' || selected === 'both' ? selected : 'hud';
+        const hudPosition = PLACEMENT.hud;
         const hud = show !== 'cluster' && place(HUD,
-            400 + bounded(settings.get('positionX'), 0, -180, 180),
-            bounded(settings.get('positionY'), 350, 110, 440), bounded(settings.get('hudSize'), 100, 60, 150) / 100, HUD_TEXTURE);
+            400 + position(settings, hudPosition.x), position(settings, hudPosition.y),
+            bounded(settings.get(hudPosition.size), 100, 60, 150) / 100, HUD_TEXTURE);
         this.sync('hud', 'hud', hud, track, cover);
         if (show === 'hud') { this.drop('cluster'); return; }
 
@@ -132,9 +143,10 @@ class MediaOutput {
         }
         const target = this.map && this.map.panel && this.host ? 'panel' : 'map';
         if (!this.map || !this.map[target]) { this.drop('cluster'); return; }
-        let cx = 544 + bounded(settings.get('clusterX'), 0, -300, 300);
-        let cy = bounded(settings.get('clusterY'), 85, 45, 440);
-        let scale = bounded(settings.get('clusterSize'), 100, 60, 150) / 100;
+        const clusterPosition = PLACEMENT.cluster;
+        let cx = 544 + position(settings, clusterPosition.x);
+        let cy = position(settings, clusterPosition.y);
+        let scale = bounded(settings.get(clusterPosition.size), 100, 60, 150) / 100;
         const area = target === 'panel' ? this.host : MAP;
         if (target === 'panel') {
             const horizontal = area.w / area.sw, vertical = area.h / area.sh;
@@ -195,4 +207,4 @@ class MediaOutput {
     }
 }
 
-module.exports = { MediaOutput, fitText, drawTrack };
+module.exports = { MediaOutput, fitText, drawTrack, position, PLACEMENT };

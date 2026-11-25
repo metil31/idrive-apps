@@ -20,6 +20,8 @@ Aplicație separată pentru melodia și artistul din CarPlay. În Setări poți 
 
 Din versiunea 0.1.1 poți alege HUD, bord sau ambele. Mărimea și poziția se reglează separat. Pe bord, textul urmează harta activă Maps on cluster, inclusiv în tema care o găzduiește. Opțiunea **Coperta albumului** este dezactivată implicit și citește imaginea JPEG locală dacă iDrive o furnizează pentru piesa curentă.
 
+Din versiunea 0.1.5, aplicația se deschide direct în meniul de reglaje. Butoanele stânga, dreapta, sus și jos mută afișajul cu 10 px la fiecare apăsare, iar mărimea se schimbă cu un cursor în aceeași pagină.
+
 Textul lung este scurtat cu puncte de suspensie. La mărimea maximă, grupul cu titlul, artistul și coperta ocupă cel mult 300 px pe HUD și 375 px pe harta standard din bord. Pe bord, grupul apare pe o pastilă gri-negru semitransparentă. Imaginea din bord este generată la rezoluție dublă și redimensionată cu interpolare biliniară.
 
 ## Speed Limit România
