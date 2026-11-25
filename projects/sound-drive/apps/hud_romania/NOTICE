@@ -3,9 +3,6 @@ HUD România — proiect comunitar pentru BMW iDrive 7.
 Formatul CarPlay DestinationInfo: arefahmad/idrive7-apps, ETA Bar, MIT.
 https://github.com/arefahmad/idrive7-apps/blob/main/apps/aref_eta/eta/route.js
 
-Câmpurile MediaPlayer pentru CarPlay: documentate în Car Lyrics (arefahmad).
-https://github.com/arefahmad/idrive7-apps/blob/main/apps/aref_carlyrics/car/nowplaying.js
-
 Semnalele BMW Light: documentate în Cluster Info (eroobeeroo).
 https://github.com/eroobeeroo/idrive7-cluster-info/tree/main/apps/cluster_info
 

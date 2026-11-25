@@ -1,10 +1,10 @@
 'use strict';
 
-const { field } = require('./hud-state');
-
-function mediaField(value, key) {
-    const named = field(value, key);
-    return named === undefined && value && typeof value === 'object' ? (value.value || value) : named;
+function field(value, key) {
+    if (value && Object.prototype.hasOwnProperty.call(value, 'value')) value = value.value;
+    if (!value || !Object.prototype.hasOwnProperty.call(value, key)) return value;
+    const member = value[key];
+    return member && Object.prototype.hasOwnProperty.call(member, 'value') ? member.value : member;
 }
 
 function textValue(value) {
@@ -13,7 +13,7 @@ function textValue(value) {
 }
 
 function decodeTrack(value) {
-    const data = mediaField(value, 'currentItemMetadata');
+    const data = field(value, 'currentItemMetadata');
     let title = '', artist = '';
     if (Array.isArray(data)) {
         for (const entry of data) {
@@ -31,9 +31,9 @@ function decodeTrack(value) {
 }
 
 function isPlaying(value) {
-    const state = mediaField(value, 'playerState');
+    const state = field(value, 'playerState');
     const name = state && typeof state === 'object' ? state.name : state;
     return name === 'PLAYER_STATE_PLAY' || name === 'PLAY';
 }
 
-module.exports = { decodeTrack, isPlaying };
+module.exports = { decodeTrack, isPlaying, field };

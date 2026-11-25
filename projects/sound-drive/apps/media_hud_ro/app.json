@@ -1,0 +1,38 @@
+{
+  "id": "media_hud_ro",
+  "title": "Media HUD România",
+  "description": "Melodia și artistul din CarPlay pe HUD-ul BMW iDrive 7, cu poziție reglabilă.",
+  "version": "0.1.0",
+  "language": "ro",
+  "license": "MIT",
+  "vendor": "custom",
+  "loggingId": "MHUD",
+  "mguHmi": ["ID7"],
+  "autostart": true,
+  "requires": { "cluster-render": "0.3.7" },
+  "signals": {
+    "de.bmw.infrastructure.VehicleCondition": {
+      "_optional": "Starea READY, necesară pentru afișare",
+      "VehicleCondition": "s"
+    },
+    "de.bmw.infotainment.entertainment.mediaplayer.MediaPlayer": {
+      "_instances": "CarPlayMedia",
+      "_optional": "Titlul și artistul pentru piesa redată prin CarPlay",
+      "currentItemMetadata": "rs",
+      "playerState": "rs"
+    }
+  },
+  "screens": [{
+    "name": "MAIN",
+    "kind": "canvas",
+    "title": "Media HUD România",
+    "buttons": [["BTN_SETTINGS", "Setări"]]
+  }],
+  "settings": [
+    { "key": "enabled", "label": "Melodie și artist pe HUD", "type": "bool", "default": true },
+    { "key": "positionX", "label": "Poziție stânga / dreapta", "type": "number", "unit": "px", "default": 0,
+      "steps": [-180, -150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150, 180] },
+    { "key": "positionY", "label": "Poziție sus / jos", "type": "number", "unit": "px", "default": 350,
+      "steps": [110, 140, 170, 200, 230, 260, 290, 320, 350, 380, 410, 440] }
+  ]
+}

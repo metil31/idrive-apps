@@ -15,19 +15,6 @@ function boundedSetting(settings, key, fallback, min, max) {
     return Number.isFinite(value) ? Math.round(Math.max(min, Math.min(max, value))) : fallback;
 }
 
-function fitText(cv, text, size, width, opts) {
-    if (cv.textWidth(text, size, opts) <= width) return text;
-    const chars = Array.from(text);
-    let lo = 0, hi = chars.length;
-    while (lo < hi) {
-        const mid = Math.ceil((lo + hi) / 2);
-        const candidate = chars.slice(0, mid).join('') + '...';
-        if (cv.textWidth(candidate, size, opts) <= width) lo = mid;
-        else hi = mid - 1;
-    }
-    return chars.slice(0, lo).join('').replace(/\s+$/, '') + '...';
-}
-
 class HudOutput {
     constructor(makeClient, Canvas) {
         this.makeClient = makeClient;
@@ -38,8 +25,7 @@ class HudOutput {
     }
 
     update(view, settings) {
-        const media = view.direction === 'off' && view.media;
-        if (view.direction === 'off' && !view.eta && !media) { this.stop(); return; }
+        if (view.direction === 'off' && !view.eta) { this.stop(); return; }
         this.last = { view, settings };
         if (!this.client) {
             const c = this.client = this.makeClient();
@@ -61,18 +47,6 @@ class HudOutput {
             });
         } else this.drop('eta');
 
-        if (media) {
-            const key = JSON.stringify([media.title, media.artist, dim]);
-            this.render('media', 195, 322, WIDTH, 56, key, (cv) => {
-                const titleStyle = { align: 'center', font: 'bold', literal: true };
-                const artistStyle = { align: 'center', font: 'label', literal: true };
-                cv.text(fitText(cv, media.title, 18, WIDTH - 16, titleStyle), WIDTH / 2, media.artist ? 22 : 32, 18,
-                    dim ? [245, 245, 245, 165] : '#ffffff', titleStyle);
-                if (media.artist) cv.text(fitText(cv, media.artist, 15, WIDTH - 16, artistStyle), WIDTH / 2, 43, 15,
-                    dim ? [218, 228, 239, 145] : '#dce7f4', artistStyle);
-            });
-        } else this.drop('media');
-
         const centre = 400 + boundedSetting(settings, 'indicatorX', 0, -100, 100);
         const y = boundedSetting(settings, 'indicatorY', 286, 126, 366) - ARROW_H / 2;
         const halfGap = boundedSetting(settings, 'indicatorGap', 362, 122, 482) / 2;
@@ -89,7 +63,7 @@ class HudOutput {
     render(name, x, y, w, h, key, draw) {
         let layer = this.layers[name];
         if (!layer) {
-            const ref = this.client.image({ target: 'hud', klass: 'overlay', z: name === 'media' ? 11 : name === 'eta' ? 12 : 13,
+            const ref = this.client.image({ target: 'hud', klass: 'overlay', z: name === 'eta' ? 12 : 13,
                 x, y, w, h, iw: w, ih: h, fps: 4, yield: 1 });
             if (!ref) return;
             layer = this.layers[name] = { ref, x, y, key: null };
@@ -119,4 +93,4 @@ class HudOutput {
     }
 }
 
-module.exports = { HudOutput, fitText };
+module.exports = { HudOutput };

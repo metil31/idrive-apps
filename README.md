@@ -1,6 +1,6 @@
 # Aplicații iDrive 7 România
 
-O singură sursă MGU Store pentru **Sound Drive în română**, **Speed Limit România** și **HUD România**. Sound Drive Audio apare ca dependență pentru Sound Drive. Aplicațiile se aleg și se instalează separat din aceeași listă.
+O singură sursă MGU Store pentru **Sound Drive în română**, **Speed Limit România**, **HUD România** și **Media HUD România**. Sound Drive Audio apare ca dependență pentru Sound Drive. Aplicațiile se aleg și se instalează separat din aceeași listă.
 
 În MGU Store, adaugă `metil31/idrive-apps` și selectează ramura `mgu-romania`. Pentru afișarea limitei pe HUD și în instrumentar, Speed Limit România folosește `cluster-render` din [robertnisipeanu/idrive-apps](https://github.com/robertnisipeanu/idrive-apps).
 
@@ -10,9 +10,11 @@ Proiect comunitar independent pentru sisteme BMW compatibile.
 
 Semnalizările și avariile, plus ora sosirii, timpul și distanța rămase dacă iDrive primește valori prin CarPlay. Cu mașina în READY, aplicația rulează în fundal. În Setări, poți muta cele două săgeți împreună pe orizontală și pe verticală și le poți apropia sau depărta. Poziția ETA se reglează separat.
 
-Opțiunea **Melodie și artist din CarPlay**, activată implicit, afișează piesa redată pe iPhone dacă iDrive primește datele media. Titlul și artistul dispar la pauză sau deconectare. Semnalizările au prioritate și ascund temporar textul muzicii.
+Necesită `cluster-render`. ETA pe Waze cu iPhone depinde de datele de traseu primite de la unitatea BMW. Pagina aplicației arată starea ghidajului, a metadatelor, a furnizorului CarPlay și numărul de destinații primite. [Credite și licențe](projects/sound-drive/apps/hud_romania/NOTICE).
 
-Necesită `cluster-render`. ETA pe Waze cu iPhone depinde de datele de traseu primite de la unitatea BMW. Pagina aplicației arată starea ghidajului, a metadatelor, a furnizorului CarPlay și numărul de destinații primite. Versiunea 0.1.1 este verificată cu semnale simulate. [Credite și licențe](projects/sound-drive/apps/hud_romania/NOTICE).
+## Media HUD România
+
+Aplicație separată pentru melodia și artistul din CarPlay. În Setări poți muta textul pe orizontală și verticală. Implicit apare sub poziția de jos a ETA. Se ascunde la pauză sau când se deconectează sursa CarPlay. Pentru a trece de la afișarea integrată în HUD România 0.1.1 la aplicația separată, actualizează mai întâi HUD România la 0.1.2. [Credite și licențe](projects/sound-drive/apps/media_hud_ro/NOTICE).
 
 ## Speed Limit România
 
