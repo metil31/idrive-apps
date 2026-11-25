@@ -1,8 +1,8 @@
 {
   "id": "speed_limit",
   "title": "Speed Limit România",
-  "description": "Limita drumului curent pe instrumentar și HUD, din harta offline OpenStreetMap România. Doar citire.",
-  "version": "1.1.5",
+  "description": "Limita drumului curent și avertizări de prioritate din harta offline OpenStreetMap România. Doar citire.",
+  "version": "1.1.6",
   "vendor": "custom",
   "loggingId": "OASL",
   "iconGlyph": "60",
@@ -235,6 +235,11 @@
           "SL_HUD_DEFAULT",
           "Default position"
         ],
+        ["header", "SL_HEAD_JUNCTION", "Indicatoare de prioritate pe HUD"],
+        ["checkbox", "SL_JUNCTION", "Avertizări Cedează trecerea și STOP"],
+        ["button", "SL_JUNCTION_YIELD", "Demo: Cedează trecerea"],
+        ["button", "SL_JUNCTION_STOP", "Demo: STOP"],
+        ["button", "SL_JUNCTION_END", "Oprește demo-ul"],
         [
           "header",
           "SL_HEAD_LOG",
@@ -382,6 +387,13 @@
     {
       "key": "hudKeep",
       "label": "Keep HUD sign over BMW's pop-ups",
+      "type": "bool",
+      "default": false,
+      "hidden": true
+    },
+    {
+      "key": "junctionHud",
+      "label": "Avertizări Cedează trecerea și STOP",
       "type": "bool",
       "default": false,
       "hidden": true

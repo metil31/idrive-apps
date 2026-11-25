@@ -31,7 +31,15 @@ check(P.parse_limit('GE:motorway'), (110, P.SRC_ZONE), 'GE:motorway zone')
 check(P.parse_limit('RO:urban'), (50, P.SRC_ZONE), 'RO:urban zone')
 check(P.parse_limit('RO:rural'), (90, P.SRC_ZONE), 'RO:rural zone')
 check(P.parse_limit('RO:motorway'), (130, P.SRC_ZONE), 'RO:motorway zone')
-check(P.parse_limit('RO:trunk'), (120, P.SRC_ZONE), 'RO:trunk / expressway zone')
+check(P.parse_limit('RO:trunk'), (0, P.SRC_NONE), 'RO:trunk does not establish a legal class')
+check(P.parse_limit('RO:expressway'), (120, P.SRC_ZONE), 'RO:expressway zone')
+check(P.parse_limit('urban', 'ro'), (50, P.SRC_ZONE), 'unqualified urban tag uses the pack country')
+check(P.parse_limit('motorway', 'ro'), (130, P.SRC_ZONE), 'unqualified motorway tag uses the pack country')
+check(P.parse_limit('RO:pedestrian'), (5, P.SRC_ZONE), 'Romanian pedestrian zone for vehicles permitted to enter')
+check(P.romanian_expressway({'highway': 'trunk', 'ref': 'DEx 12'}), True, 'expressway identified by DEx reference')
+check(P.romanian_expressway({'highway': 'motorway', 'ref': 'DX4'}), True, 'expressway identified by DX reference')
+check(P.romanian_expressway({'highway': 'trunk', 'ref': 'DN1', 'int_ref': 'E60'}), False, 'European road is not an expressway')
+check(P.romanian_expressway({'highway': 'trunk_link', 'ref': 'DEx12'}), False, 'ramp does not inherit the expressway default')
 check(P.parse_limit('RU:living_street'), (20, P.SRC_ZONE), 'living street zone (any country)')
 check(P.parse_limit('signals'), (0, P.SRC_VAR), 'variable signs')
 check(P.parse_limit('none'), (0, P.SRC_NONE), 'none: nothing usable')
@@ -47,6 +55,12 @@ check(P.limits({'maxspeed': '60', 'maxspeed:backward': '40'}), (60, P.SRC_NUM, 4
 check(P.limits({'source:maxspeed': 'GE:urban'}), (60, P.SRC_ZONE, 60, P.SRC_ZONE), 'the zone from source:maxspeed')
 check(P.limits({'maxspeed': '50', 'maxspeed:type': 'GE:urban'}), (50, P.SRC_NUM, 50, P.SRC_NUM), 'a number wins over its zone')
 check(P.limits({}), (0, P.SRC_NONE, 0, P.SRC_NONE), 'untagged')
+check(P.limits({'maxspeed': '90', 'maxspeed:conditional': '60 @ wet'}),
+      (0, P.SRC_VAR, 0, P.SRC_VAR), 'an unknown condition suppresses the static number')
+check(P.limits({'maxspeed': '90', 'maxspeed:forward:conditional': '60 @ wet'}),
+      (0, P.SRC_VAR, 90, P.SRC_NUM), 'directional conditions leave the opposite limit intact')
+check(P.limits({'maxspeed': '120', 'maxspeed:variable': 'yes'}),
+      (0, P.SRC_VAR, 0, P.SRC_VAR), 'the ceiling printed for an electronic sign is not its live value')
 
 # A sourced correction only applies to the reviewed way and its former base limit.
 local = [{'street': 'Calea Victoriei', 'source': 'https://example.org/notice',

@@ -12,3 +12,11 @@ Original extract: https://download.geofabrik.de/europe/romania.html
 Map data date: 2026-11-24.
 Local correction for Calea Victoriei, based on the Brigada Rutiera notice of 2025-04-11:
 https://agerpres.ro/comunicate/2025/04/11/comunicat-de-presa---brigada-rutiera--1439889
+
+Offline priority sign locations (junctions-data.js): © OpenStreetMap contributors, ODbL 1.0.
+Complete derived records included as junctions-data.js. Geofabrik Romania extract, 2026-11-24.
+Priority sign artwork (junction-art.js only): created by Alex:D, CC BY-SA 3.0 Unported.
+Original artwork: https://commons.wikimedia.org/wiki/File:RO_road_sign_B01.svg
+Original artwork: https://commons.wikimedia.org/wiki/File:RO_road_sign_B02.svg
+License: https://creativecommons.org/licenses/by-sa/3.0/
+Changes: rasterized and fitted to transparent 96 × 96 RGBA tiles for the HUD.

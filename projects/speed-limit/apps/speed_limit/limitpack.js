@@ -17,7 +17,7 @@
 const fs = require('fs');
 
 const R = 6378137;
-const F = { ONEWAY: 1, TUNNEL: 2, LINK: 4, ROUNDABOUT: 8, URBAN: 16, BRIDGE: 32, EUROPEAN: 64 };
+const F = { ONEWAY: 1, TUNNEL: 2, LINK: 4, ROUNDABOUT: 8, URBAN: 16, BRIDGE: 32, EUROPEAN: 64, EXPRESSWAY: 128 };
 const SRC = { NONE: 0, NUM: 1, ZONE: 2, VAR: 3 };
 const CLASS = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'unclassified', 'residential', 'living_street', 'service'];
 const REC = 24;

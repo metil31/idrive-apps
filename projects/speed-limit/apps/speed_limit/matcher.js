@@ -37,21 +37,24 @@ function limitOf(P, dir, defaults) {
     const d = defaults || DEFAULTS;
     let lim, src;
     if (dir >= 0) { lim = P.limF; src = P.src & 3; } else { lim = P.limB; src = (P.src >> 2) & 3; }
-    if (dir === 0 && P.limF !== P.limB) {
-        // the direction is not known yet and the two ways differ: the lower one, and only if both are tagged
-        const sf = P.src & 3, sb = (P.src >> 2) & 3;
-        if ((sf === SRC.NUM || sf === SRC.ZONE) && (sb === SRC.NUM || sb === SRC.ZONE)) return { limit: Math.min(P.limF, P.limB), inferred: false, variable: false, src: sf };
-        lim = 0; src = SRC.NONE;
+    if (src === SRC.VAR || (dir === 0 && ((P.src >> 2) & 3) === SRC.VAR)) {
+        return { limit: null, inferred: false, variable: true, src: SRC.VAR };
     }
-    if ((src === SRC.NUM || src === SRC.ZONE) && lim > 0) return { limit: lim, inferred: false, variable: false, src };
+    if (dir === 0 && P.limF !== P.limB) {
+        return { limit: null, inferred: false, variable: false, uncertain: true, src: SRC.NONE };
+    }
+    if ((src === SRC.NUM || src === SRC.ZONE) && lim > 0) {
+        const inferred = src === SRC.ZONE || (dir === 0 && (P.src >> 2 & 3) === SRC.ZONE);
+        return { limit: lim, inferred, variable: false, src };
+    }
     let def;
     if (P.cls === 7) def = d.living;
+    else if (P.flags & F.EXPRESSWAY) def = d.expressway;
     else if (P.cls === 0 && !(P.flags & F.LINK)) def = d.motorway;     // (its ramps: the settlement / rural one)
-    else if (P.cls === 1 && !(P.flags & F.LINK)) def = d.expressway;
     else if ((P.flags & F.EUROPEAN) && !(P.flags & F.URBAN)) def = d.european;
     else if (P.flags & F.URBAN) def = d.urban;
     else def = d.rural;
-    return { limit: def || null, inferred: true, variable: src === SRC.VAR, src };
+    return { limit: def || null, inferred: true, variable: false, src };
 }
 
 class Matcher {
@@ -150,7 +153,8 @@ class Matcher {
         const r = Object.assign({ state, limit: null, inferred: false, variable: false, way: 0, piece: -1, cls: -1, flags: 0, dir: 0, dist: null, heading: this.heading, candidates: 0 }, extra || {});
         if (c) {
             const L = limitOf(c.P, c.dir, this.defaults);
-            Object.assign(r, { limit: L.limit, inferred: L.inferred, variable: L.variable, way: c.P.way, piece: c.P.id, cls: c.P.cls, flags: c.P.flags, dir: c.dir, dist: c.dist });
+            Object.assign(r, { limit: L.limit, inferred: L.inferred, variable: L.variable, uncertain: !!L.uncertain,
+                way: c.P.way, piece: c.P.id, cls: c.P.cls, flags: c.P.flags, dir: c.dir, dist: c.dist });
             const fx = this.fixes && this.fixes.get(c.P.way);
             if (fx) this._fixed(r, c, fx, L);
         }
@@ -204,7 +208,11 @@ class Matcher {
                 this.pending = null;
             } else this.cur = { way: stay.P.way, P: stay.P, dir: stay.dir, dist: stay.dist };
         }
-        return this._result('match', this.cur, { candidates: cands.length });
+        const rival = cands.find((c) => c.P.way !== best.P.way && !c.past &&
+            c.dist - best.dist < 7 && c.diff - best.diff < 18);
+        const junctionMatch = Number.isFinite(heading) && !!best.dir && !best.past && best.dist <= 10 &&
+            best.diff <= 35 && best.P.id === this.cur.P.id && !rival;
+        return this._result('match', this.cur, { candidates: cands.length, junctionMatch });
     }
 }
 

@@ -21,10 +21,10 @@ Layout (little endian; sections 4-byte aligned):
           u8  class           0 motorway 1 trunk 2 primary 3 secondary 4 tertiary 5 unclassified 6 residential
                               7 living_street 8 service (only with a limit tagged)
           u8  flags           1 oneway, 2 tunnel, 4 link (ramp), 8 roundabout, 16 urban (inside a settlement, by
-                              landuse and places), 32 bridge, 64 European route
+                              landuse and places), 32 bridge, 64 European route, 128 Romanian expressway
           u8  limF, u8 limB   km/h along / against the piece's direction (0: none tagged)
           u8  src             bits 0-1 forward, 2-3 backward: 0 untagged, 1 a number, 2 a zone ("GE:urban"),
-                              3 signs that change (signals, variable)
+                              3 signs that change or depend on conditions
           u8  0
           u32 way             OSM way id
   PNTS  u32 n, n x { i16 dx, i16 dy }  decimetres from the piece's first point
@@ -44,6 +44,7 @@ import math
 import os
 import struct
 import sys
+import re
 import time
 import zlib
 from array import array
@@ -62,6 +63,7 @@ ROAD = {
     'motorway_link': 0, 'trunk_link': 1, 'primary_link': 2, 'secondary_link': 3, 'tertiary_link': 4,
 }
 F_ONEWAY, F_TUNNEL, F_LINK, F_ROUNDABOUT, F_URBAN, F_BRIDGE, F_EUROPEAN = 1, 2, 4, 8, 16, 32, 64
+F_EXPRESSWAY = 128
 SRC_NONE, SRC_NUM, SRC_ZONE, SRC_VAR = 0, 1, 2, 3
 CARDINAL = {'N': 0, 'NNE': 22, 'NE': 45, 'ENE': 67, 'E': 90, 'ESE': 112, 'SE': 135, 'SSE': 157, 'S': 180, 'SSW': 202,
             'SW': 225, 'WSW': 247, 'W': 270, 'WNW': 292, 'NW': 315, 'NNW': 337}
@@ -70,8 +72,8 @@ ZONES = {'urban': 60, 'rural': 90, 'motorway': 110, 'living_street': 20, 'walk':
 # country-specific: RO:urban must not accidentally inherit Georgia's 60 km/h.
 COUNTRY_ZONES = {
     'ge': {'urban': 60, 'rural': 90, 'motorway': 110, 'living_street': 20},
-    'ro': {'urban': 50, 'rural': 90, 'motorway': 130, 'trunk': 120,
-           'expressway': 120, 'living_street': 20},
+    'ro': {'urban': 50, 'rural': 90, 'motorway': 130,
+           'expressway': 120, 'living_street': 20, 'pedestrian': 5},
 }
 URBAN_LANDUSE = ('residential', 'commercial', 'retail', 'industrial', 'garages', 'construction', 'education')
 PLACE_RADIUS = {'city': 3000, 'town': 1500, 'village': 600, 'suburb': 700, 'quarter': 400, 'neighbourhood': 300,
@@ -356,7 +358,14 @@ def road_class(t):
     return ROAD[hw]
 
 
-def parse_limit(v):
+def romanian_expressway(tags):
+    if tags.get('highway') not in ('motorway', 'trunk'):
+        return False
+    return any(re.fullmatch(r'D(?:EX|X)\d+[A-Z]?', ref.strip().upper().replace(' ', ''))
+               for ref in tags.get('ref', '').split(';'))
+
+
+def parse_limit(v, country_hint=''):
     """(km/h, source) of a maxspeed value; (0, SRC_NONE) if it says nothing usable."""
     if not v:
         return 0, SRC_NONE
@@ -372,6 +381,8 @@ def parse_limit(v):
         if zone in ('living_street', 'walk', 'pedestrian'):
             return ZONES[zone], SRC_ZONE
         return 0, SRC_NONE
+    if lv in COUNTRY_ZONES.get(country_hint, {}):
+        return COUNTRY_ZONES[country_hint][lv], SRC_ZONE
     if lv in ZONES:
         return ZONES[lv], SRC_ZONE
     num = ''
@@ -390,21 +401,26 @@ def parse_limit(v):
     return s, SRC_NUM
 
 
-def limits(t):
+def limits(t, country_hint=''):
     """(limF, srcF, limB, srcB) along and against the way's own direction."""
-    base = parse_limit(t.get('maxspeed'))
+    base = parse_limit(t.get('maxspeed'), country_hint)
     if base[1] == SRC_NONE:
         for k in ('maxspeed:type', 'source:maxspeed', 'zone:maxspeed'):
-            z = parse_limit(t.get(k))
+            z = parse_limit(t.get(k), country_hint)
             if z[1] == SRC_ZONE:
                 base = z
                 break
-    f = parse_limit(t.get('maxspeed:forward'))
-    b = parse_limit(t.get('maxspeed:backward'))
+    f = parse_limit(t.get('maxspeed:forward'), country_hint)
+    b = parse_limit(t.get('maxspeed:backward'), country_hint)
     if f[1] == SRC_NONE:
         f = base
     if b[1] == SRC_NONE:
         b = base
+    dynamic = (t.get('maxspeed:variable') or 'no').lower() != 'no'
+    if dynamic or t.get('maxspeed:conditional') or t.get('maxspeed:forward:conditional') or (t.get('maxspeed:variable:forward') or 'no').lower() != 'no':
+        f = (0, SRC_VAR)
+    if dynamic or t.get('maxspeed:conditional') or t.get('maxspeed:backward:conditional') or (t.get('maxspeed:variable:backward') or 'no').lower() != 'no':
+        b = (0, SRC_VAR)
     return f[0], f[1], b[0], b[1]
 
 
@@ -613,7 +629,7 @@ def densify(pts):
     return out
 
 
-def compile_pack(roads, rings, places, coords, log):
+def compile_pack(roads, rings, places, coords, log, region='Romania'):
     t0 = time.time()
     geo = []
     xmin = ymin = float('inf')
@@ -637,9 +653,10 @@ def compile_pack(roads, rings, places, coords, log):
     pieces = []      # (x0, y0, [(dx, dy)...], cls, flags, limF, limB, src, wid)
     stats = {'roads': 0, 'km': 0.0, 'km_tagged': 0.0, 'km_zone': 0.0, 'km_urban_untagged': 0.0,
              'km_rural_untagged': 0.0, 'by_class_km': [0.0] * 9, 'by_class_tagged_km': [0.0] * 9}
+    country_hint = 'ro' if region == 'Romania' else ''
     for wid, pts, t, cls in geo:
         ow, rb = oneway_of(t, cls)
-        lf, sf, lb, sb = limits(t)
+        lf, sf, lb, sb = limits(t, country_hint)
         if ow == -1:
             pts = pts[::-1]
             lf, sf, lb, sb = lb, sb, lf, sf
@@ -653,6 +670,8 @@ def compile_pack(roads, rings, places, coords, log):
         refs = ((t.get('ref') or '') + ';' + (t.get('int_ref') or '')).upper().replace(' ', '')
         if any(r.startswith('E') and r[1:].isdigit() for r in refs.split(';') if r):
             flags |= F_EUROPEAN
+        if region == 'Romania' and romanian_expressway(t):
+            flags |= F_EXPRESSWAY
         if t.get('highway', '').endswith('_link'):
             flags |= F_LINK
         if cls == 8 and (sf == SRC_NONE and sb == SRC_NONE or t.get('service') in ('parking_aisle', 'driveway')):
@@ -802,7 +821,7 @@ def main(argv=None):
     roads, rings, places, coords, cameras = read(a.pbf, log)
     applied = apply_local_limits(roads, groups, log) if groups else 0
     log('  verified local limits applied: %d OSM ways' % applied)
-    pieces, cells, grid, bbox, stats = compile_pack(roads, rings, places, coords, log)
+    pieces, cells, grid, bbox, stats = compile_pack(roads, rings, places, coords, log, region=a.region)
     data_date = time.strftime('%Y-%m-%d', time.gmtime(ts)) if ts else None
     write(a.out, pieces, cells, grid, bbox, {'region': a.region, 'source': os.path.basename(a.pbf),
                                               'data': data_date, 'built': time.strftime('%Y-%m-%d'),

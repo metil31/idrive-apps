@@ -21,6 +21,7 @@
  */
 const { ClusterRender } = require('./crclient');
 const { drawSign, signWidth } = require('./sign');
+const { junctionFrame, opacity } = require('./junction-sign');
 
 const TARGETS = {
     hud: { w: 800, h: 480, cx: 175, cy: 290, size: 'hudSize', x: 'hudX', y: 'hudY', def: 88 },
@@ -32,6 +33,7 @@ const LAYER_RX = /^layer \d+ (\S+) of (.+) on (\w+), (\w+) z -?\d+[^:]*: (\w+)/;
 const PHONE_MAP = new Set(['waze-on-cluster', 'robertn_waze_cluster']);
 const STATUS_MS = 3000;          // while the sign is on the cluster's map: notice soon that the phone map went
 const STATUS_IDLE_MS = 10000;    // otherwise (a map target event asks at once)
+const FADE_MS = 400;
 
 function panelHost(event, targets) {
     const panel = /(?:^|,)panel:(\d+)x(\d+)(?:,|$)/.exec(targets);
@@ -79,6 +81,9 @@ class Outputs {
         this.targets = {};          // target -> { state, holder, reason }
         this.layerStates = {};      // ref -> state
         this.view = null;
+        this.junction = null;
+        this.fade = null;
+        this.fadeTimer = null;
         this.refused = '';
     }
 
@@ -122,6 +127,8 @@ class Outputs {
     }
 
     stop() {
+        clearTimeout(this.fadeTimer);
+        this.fadeTimer = this.fade = this.junction = null;
         if (!this.cr) return;
         const cr = this.cr;
         this.cr = null;
@@ -162,12 +169,43 @@ class Outputs {
         this._apply(now || Date.now());
     }
 
-    _apply() {
+    setJunction(item, now) {
+        const target = item ? 1 : 0;
+        const previous = this.fade ? this.fade.to : 0;
+        if (target !== previous) {
+            this.fade = { from: this._blend(now), to: target, at: now };
+            this._animateFade();
+        }
+        if (item) this.junction = item;
+    }
+
+    _blend(now) {
+        if (!this.fade) return 0;
+        const { from, to, at } = this.fade;
+        const progress = Math.max(0, Math.min(1, (now - at) / FADE_MS));
+        return from + (to - from) * progress;
+    }
+
+    _animateFade() {
+        if (this.fadeTimer) return;
+        this.fadeTimer = setTimeout(() => {
+            this.fadeTimer = null;
+            const now = Date.now();
+            if (!this.fade.to && now - this.fade.at >= FADE_MS) this.fade = this.junction = null;
+            this._apply(now);
+            if (this.fade && now - this.fade.at < FADE_MS) this._animateFade();
+        }, 50);
+    }
+
+    _apply(now = Date.now()) {
         const cr = this.cr;
         if (!cr || !cr.ready) return;
+        const blend = this._blend(now);
         ['hud', 'map'].forEach((t) => {
             let L = this.layers[t];
-            const show = !!(this.view && (this.view.limit || this.view.unknown) && this._wanted(t));
+            const alpha = t === 'hud' ? 1 - blend : 1;
+            const view = this.view || (t === 'hud' && this.junction && this.junction.demo ? { limit: null, unknown: true } : null);
+            const show = !!(alpha && view && (view.limit || view.unknown) && this._wanted(t));
             const target = t === 'map' && this.panelMapBy ? 'panel' : t;
             if (L && L.target !== target) {
                 cr.drop(L.ref);
@@ -175,7 +213,7 @@ class Outputs {
                 delete this.layers[t];
                 L = null;
             }
-            const cam = show ? this.view.camera || '' : '';
+            const cam = show ? view.camera || '' : '';
             const w = show ? this._where(t, cam) : null;
             const place = w && (target === 'panel' ? hostedPlace(w, this.hostRect) : { x: w.x, y: w.y, w: w.W, h: w.size });
             if (!place) {
@@ -184,9 +222,9 @@ class Outputs {
             }
             // the pixels only when the picture changes (limit, size, default, over, the camera's distance step): not
             // on every tick
-            const key = [this.view.limit, w.size, !!this.view.inferred, !!this.view.over, cam].join(':');
+            const key = [view.limit, w.size, !!view.inferred, !!view.over, cam, alpha].join(':');
             const sign = L && L.size === w.size && L.W === w.W && L.key === key ? null
-                : drawSign(this.view.limit, { size: w.size, inferred: this.view.inferred, over: this.view.over, camera: cam, pillLeft: !!TARGETS[t].pillLeft });
+                : drawSign(view.limit, { size: w.size, inferred: view.inferred, over: view.over, camera: cam, pillLeft: !!TARGETS[t].pillLeft });
             if (L && (L.size !== w.size || L.W !== w.W)) {
                 cr.drop(L.ref);
                 delete this.layerStates[L.ref];
@@ -195,7 +233,7 @@ class Outputs {
             const yld = t === 'hud' && this.settings.get('hudKeep') ? 0 : 1;
             if (!L) {
                 const ref = cr.image(Object.assign({ target, class: 'overlay', z: 20, iw: w.W, ih: w.size,
-                    fps: 4, visible: 1, contend: 0, yield: yld }, place));
+                    fps: t === 'hud' ? 20 : 4, visible: 1, contend: 0, yield: yld }, place));
                 L = this.layers[t] = { ref, target, size: w.size, W: w.W, place, key: '', visible: true, yld };
             } else {
                 if (L.place.x !== place.x || L.place.y !== place.y || L.place.w !== place.w || L.place.h !== place.h) {
@@ -205,8 +243,40 @@ class Outputs {
                 if (L.yld !== yld) { cr.set(L.ref, { yield: yld }); L.yld = yld; }
                 if (!L.visible) { cr.set(L.ref, { visible: 1 }); L.visible = true; }
             }
-            if (sign && L.key !== sign.key) { cr.pixels(L.ref, sign.px); L.key = sign.key; }
+            if (sign) { cr.pixels(L.ref, opacity(sign.px, alpha)); L.key = key; }
         });
+        this._applyJunction(blend);
+    }
+
+    _applyJunction(blend) {
+        const cr = this.cr, item = this.junction;
+        let layer = this.layers.junction;
+        if (!item || !blend || !this._wanted('hud')) {
+            if (layer) { cr.drop(layer.ref); delete this.layerStates[layer.ref]; delete this.layers.junction; }
+            return;
+        }
+        const { x, y, size } = this._where('hud', (this.view && this.view.camera) || '');
+        const frameKey = [item.kind, item.metres, !!item.demo, size, x].join(':');
+        let frame = layer && layer.frameKey === frameKey ? layer.frame : junctionFrame(item, size, false);
+        if (!frame.offset && x + frame.w > TARGETS.hud.w) frame = junctionFrame(item, size, true);
+        const place = { x: x - frame.offset, y, w: frame.w, h: size };
+        const yld = this.settings.get('hudKeep') ? 0 : 1;
+        if (layer && (layer.place.w !== place.w || layer.place.h !== place.h)) {
+            cr.drop(layer.ref);
+            delete this.layerStates[layer.ref];
+            layer = null;
+        }
+        if (!layer) {
+            const ref = cr.image(Object.assign({ target: 'hud', class: 'overlay', z: 21, iw: frame.w, ih: size,
+                fps: 20, visible: 1, contend: 0, yield: yld }, place));
+            layer = this.layers.junction = { ref, place, yld };
+        } else if (layer.place.x !== place.x || layer.place.y !== place.y || layer.yld !== yld) {
+            cr.set(layer.ref, Object.assign({ yield: yld }, place));
+            layer.place = place;
+            layer.yld = yld;
+        }
+        if (layer.frameKey !== frameKey || layer.blend !== blend) cr.pixels(layer.ref, opacity(frame.px, blend));
+        Object.assign(layer, { frame, frameKey, blend });
     }
 
     /** Ask for the visible layers while cluster display is selected, even without a known limit. */

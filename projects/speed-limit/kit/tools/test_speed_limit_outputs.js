@@ -48,7 +48,11 @@ const server = net.createServer((s) => {
                 got.push({ t: 'J', m });
                 if (m.op === 'hello') send(s, { ev: 'hello', proto: 1, backend: 'id7', targets: 'map:1088x480,panel:1920x720,hud:800x480' });
                 if (m.op === 'status') send(s, { ev: 'status', text: statusText });
-            } else if (type === 0x46) got.push({ t: 'F', ref: body.readUInt32LE(0), bytes: body.length - 14 });
+            } else if (type === 0x46) {
+                let alpha = 0;
+                for (let i = 17; i < body.length; i += 4) alpha = Math.max(alpha, body[i]);
+                got.push({ t: 'F', ref: body.readUInt32LE(0), bytes: body.length - 14, alpha });
+            }
         }
     });
     s.on('close', () => { closed = true; });
@@ -196,6 +200,26 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
     check(small.h === 40 && small.w > 40 && small.x + 20 === hx.x + 44 + 40 &&
         got.some((g) => g.t === 'F' && g.ref === small.ref && g.bytes === small.w * 40 * 4),
     '40 px HUD sign keeps its centre and sends the attached camera badge');
+
+    const beforeAlert = got.length;
+    out.setJunction({ kind: 'yield', metres: 60, demo: true }, Date.now());
+    await wait(560);
+    const priority = ops('layer').find((m) => m.z === 21);
+    const faded = (ref) => got.slice(beforeAlert).filter((m) => m.t === 'F' && m.ref === ref).map((m) => m.alpha);
+    check(priority && priority.target === 'hud' && priority.x === small.x && priority.y === small.y,
+        'priority sign uses the speed sign position even with a camera badge');
+    check(faded(small.ref).some((a) => a > 0 && a < 255) && faded(priority.ref).slice(-1)[0] === 255 &&
+        ops('set').some((m) => m.ref === small.ref && m.visible === 0), 'speed sign fades out and priority sign fades in');
+    check(!got.slice(beforeAlert).some((g) => g.t === 'J' && g.m.target === 'map'), 'priority alert does not create a cluster layer');
+    settings.v.hudX += 10;
+    out.setJunction({ kind: 'stop', metres: 40, demo: true }, Date.now());
+    out.update({ limit: 130, camera: '350 m' }, Date.now());
+    await wait(120);
+    check(ops('set').some((m) => m.ref === priority.ref && m.x === priority.x + 10), 'demo sign moves ten pixels with the HUD controls');
+    out.setJunction(null, Date.now());
+    await wait(560);
+    check(ops('drop').some((m) => m.ref === priority.ref) && faded(small.ref).slice(-1)[0] === 255 &&
+        ops('set').some((m) => m.ref === small.ref && m.visible === 1), 'the speed sign fades back after the alert');
 
     out.stop();
     await wait(200);

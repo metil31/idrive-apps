@@ -29,6 +29,8 @@ const { Cameras, camText } = require('./cameras');
 const { Outputs, TARGETS } = require('./outputs');
 const { Fixes } = require('./fixes');
 const { unmerc } = require('./limitpack');
+const { Junctions, DEMO, demoAllowed } = require('./junctions');
+const JUNCTION_DATA = require('./junctions-data');
 
 const APP_ID = 'speed_limit';
 const PACK = path.join(__dirname, 'romania.pack');
@@ -36,6 +38,7 @@ const TICK_MS = 500;            // driving: twice a second
 const STILL_MS = 2000;          // standing still (a light, a jam): every 2 s
 const BOOT_WAIT_MS = 5000;      // at start-up, the time the power state has to arrive before the app runs without it
 const VIEW_HOLD_MS = 8000;
+const JUNCTION_DEMO_MS = 90000;
 const ACTIVE = { 7: true, 8: true, 10: true, 12: true };
 const DRIVE_LOG_PER_MIN = 40;   // the drive log's most lines a minute (a road that flips back and forth)
 
@@ -69,11 +72,22 @@ class Engine {
         this.fix = null;
         this.cams = null;               // speed cameras ahead (the pack's), while active
         this.camera = null;             // { dist, ms } of the one ahead
+        this.junctions = null;
+        this.junction = null;
+        this.junctionDemo = null;
         this.listeners = [];
         this.settings.onChange((k) => {
             if (k === 'show') this._evaluate();
             if (/^def/.test(k) && this.matcher) this.matcher.setDefaults(this.defaults());
-            if (this.active) this.outputs.update(this.view, Date.now());
+            if (this.active) {
+                const now = Date.now();
+                if (!this.junctionHud()) this.junctionDemo = null;
+                if (k === 'junctionHud' || k === 'show') {
+                    this.junction = null;
+                    this.junctions.update(null, null);
+                }
+                this._show(now);
+            }
             this._changed();
         });
     }
@@ -107,6 +121,7 @@ class Engine {
     _condition(c) {
         if (c === undefined || c === this.condition) return;
         this.condition = c;
+        if (this.junctionDemo && c !== 7 && c !== 10) this.previewJunction(null);
         if (this.bootTimer) { clearTimeout(this.bootTimer); this.bootTimer = null; }
         if (!this.demoOn) this.carOn = !!ACTIVE[c];
         this._evaluate();
@@ -121,6 +136,7 @@ class Engine {
                 this.pack = LimitPack.open(PACK);
                 this.matcher = new Matcher(this.pack, { defaults: this.defaults(), fixes: this.fixes });
                 this.cams = new Cameras(this.pack.cameras);
+                this.junctions = new Junctions(this.pack, JUNCTION_DATA.signs);
                 if (this.demoOn) this.demo = new DemoDrive(this.pack, { way: this.settings.get('demoWay'), speed: this.settings.get('demoSpeed') });
             } catch (e) { this.packError = String(e.message || e); this.log.error('map: ' + this.packError); this.active = false; return; }
             if (!this.demoOn) this.position.start().catch((e) => this.log.warn('position: ' + e));
@@ -133,6 +149,7 @@ class Engine {
             this.outputs.stop();
             if (this.pack) this.pack.close();
             this.pack = null; this.matcher = null; this.demo = null; this.cams = null; this.camera = null;
+            this.junctions = this.junction = this.junctionDemo = null;
             this.view = null; this.res = null; this.fix = null; this.speed = null;
         }
         this._changed();
@@ -152,13 +169,40 @@ class Engine {
         if (!this.demo) { this.position.poll(now); this.outputs.tick(now); } else this.outputs.tick(now);
         this.fix = this.demo ? this.demo.fix(now) : this.position.fix(now);
         this.speed = this.demo ? this.demo.speedKmh(now) : this.position.speedKmh(now);
-        if (!this._still()) this.res = this.matcher.update(this.fix, now);
+        const alerts = this.junctionHud() && this.settings.get('junctionHud') === true;
+        const approaching = alerts && this.condition === 10 && this.speed !== null && (this.speed >= 2 || !!this.junction);
+        if (!this._still() || approaching) this.res = this.matcher.update(this.fix, now);
         // a speed camera ahead (setting "cameras"): a few multiplications per camera near the car
         this.camera = this.cams && this.settings.get('cameras') !== 'off' ? this.cams.update(this.fix, this.matcher.heading, now) : null;
         this._decide(now);
-        this.outputs.update(this.view, now);
+        const live = approaching && this.fix && this.fix.age <= 2500;
+        this.junction = this.junctions.update(live ? this.fix : null, this.res);
+        this._show(now);
         if (this.settings.get('driveLog') !== false) this._driveLog(now);
         this._changed();
+    }
+
+    junctionHud() {
+        const show = this.settings.get('show');
+        return show === 'hud' || show === 'both';
+    }
+
+    canPreviewJunction(now) {
+        return this.active && this.junctionHud() && demoAllowed(this.condition, this.position.speedKmh(now));
+    }
+
+    previewJunction(kind) {
+        const now = Date.now();
+        if (kind && (!DEMO[kind] || !this.canPreviewJunction(now))) return;
+        this.junctionDemo = kind ? { kind, metres: DEMO[kind], demo: true, until: now + JUNCTION_DEMO_MS } : null;
+        if (this.active) this._show(now);
+        this._changed();
+    }
+
+    _show(now) {
+        if (this.junctionDemo && (now >= this.junctionDemo.until || !this.canPreviewJunction(now))) this.junctionDemo = null;
+        this.outputs.setJunction(this.junctionDemo || this.junction, now);
+        this.outputs.update(this.view, now);
     }
 
     /** The drive log: a line when the road, its limit or what is shown changes (a few a minute), for a report. */
@@ -240,7 +284,7 @@ class Engine {
     /** The road's limit again after a correction changed (without waiting for the next tick). */
     _refresh() {
         if (this.active && this.matcher && this.matcher.cur && this.res) this.res = this.matcher._result(this.res.state, this.matcher.cur, { candidates: this.res.candidates });
-        if (this.active) { this._decide(Date.now()); this.outputs.update(this.view, Date.now()); }
+        if (this.active) { const now = Date.now(); this._decide(now); this._show(now); }
         this._changed();
     }
 
@@ -254,7 +298,7 @@ class Engine {
         if (r && r.limit && !(r.inferred && s.get('untagged') === 'hide')) {
             this.view = { limit: r.limit, inferred: r.inferred, over: over(r.limit), corrected: !!r.corrected };
             this.viewAt = now;
-        } else if (this.view && this.view.limit && now - this.viewAt < VIEW_HOLD_MS) {
+        } else if (!(r && r.state === 'match') && this.view && this.view.limit && now - this.viewAt < VIEW_HOLD_MS) {
             this.view = { limit: this.view.limit, inferred: this.view.inferred, over: over(this.view.limit), corrected: this.view.corrected };
         } else if (s.get('noLimit') === 'dashes') {
             this.view = { limit: null, unknown: true, inferred: false, over: false };     // "---", as BMW's own
@@ -310,6 +354,8 @@ function limitText(e) {
     if (!e.active) return 'Speed limit: ' + (e.enabled() ? 'car off' : 'off');
     const cam = v && v.camera ? ', speed camera in ' + v.camera : '';
     if (v && v.limit) return 'Speed limit: ' + v.limit + ' km/h' + (v.inferred ? ' (default for this road)' : '') + cam;
+    if (r && r.variable) return 'Limită variabilă sau condiționată' + cam;
+    if (r && r.uncertain) return 'Limita diferă în funcție de sensul de mers' + cam;
     if (cam) return 'Speed limit: not known' + cam;
     if (!r || r.state === 'nofix') return 'Speed limit: waiting for a position';
     if (r.state === 'outside') return 'Speed limit: outside the map';
@@ -322,6 +368,10 @@ function signState(e, t) {
     if (!e.active) return e.enabled() ? 'Car off' : 'Off';
     if (!o.connected) return 'Unavailable (no cluster-render)';
     if (t === 'cluster' && !o.mapBusy && !o.panelMapBy) return 'Waiting for the phone map';
+    if (t === 'hud' && (e.junctionDemo || e.junction)) {
+        const alert = e.junctionDemo || e.junction;
+        return (alert.demo ? 'DEMO ' : '') + (alert.kind === 'stop' ? 'STOP' : 'Cedează trecerea') + ', ' + alert.metres + ' m';
+    }
     if (!e.view) return 'No limit to show';
     const st = o[t === 'cluster' ? 'cluster' : 'hud'];
     return /^shown/.test(st) ? 'Shown' : /^waiting|^parked/.test(st) ? 'Waiting (' + st + ')' : 'Waiting';
@@ -429,6 +479,14 @@ mgu.run({
             const route = clusterRoute(engine);
             once('clusterRoute', route, () => ui.text('SL_CL_ROUTE', route));
             renderPlace('hud');
+            const hud = engine.junctionHud(), preview = engine.canPreviewJunction(Date.now()), demo = !!engine.junctionDemo;
+            once('junction', s.get('junctionHud') === true, () => ui.checked('SL_JUNCTION', s.get('junctionHud') === true));
+            once('en:junction', hud, () => ui.enabled('SL_JUNCTION', hud));
+            once('en:preview', preview, () => {
+                ui.enabled('SL_JUNCTION_YIELD', preview);
+                ui.enabled('SL_JUNCTION_STOP', preview);
+            });
+            once('en:demoEnd', demo, () => ui.enabled('SL_JUNCTION_END', demo));
         }
 
         // the HMI moves a drop-down's choice and the slider itself: only the setting follows
@@ -437,6 +495,10 @@ mgu.run({
         ui.onClick('SL_NOLIMIT', (ev) => { const v = NOLIMIT[ev.row]; if (v) { done.nolim = ev.row; s.set('noLimit', v); } });
         ui.onClick('SL_CAMS', (ev) => { const v = CAMS[ev.row]; if (v) { done.cams = ev.row; s.set('cameras', v); } });
         ui.onClick('SL_HUD_KEEP', () => { if (on(placeOf('hud'))) s.set('hudKeep', !s.get('hudKeep')); });
+        ui.onClick('SL_JUNCTION', () => { if (engine.junctionHud()) s.set('junctionHud', s.get('junctionHud') !== true); });
+        ui.onClick('SL_JUNCTION_YIELD', () => engine.previewJunction('yield'));
+        ui.onClick('SL_JUNCTION_STOP', () => engine.previewJunction('stop'));
+        ui.onClick('SL_JUNCTION_END', () => engine.previewJunction(null));
         // a correction of the road the car is on; off a road the drop-down goes back to what it showed
         ui.onClick('SL_FIX', (ev) => {
             const v = FIXV[ev.row];
@@ -477,7 +539,11 @@ mgu.run({
             if (timer || !ui.isVisible('MAIN')) return;
             timer = setTimeout(() => { timer = null; render(); }, 1000);
         });
-        ui.onVisible((name, v) => { if (name === 'MAIN' && v) { Object.keys(done).forEach((k) => delete done[k]); render(); } });
+        ui.onVisible((name, v) => {
+            if (name !== 'MAIN') return;
+            if (!v) { if (engine.junctionDemo) engine.previewJunction(null); return; }
+            Object.keys(done).forEach((k) => delete done[k]); render();
+        });
         render();
         qrScreen(ctx, engine);
     },
