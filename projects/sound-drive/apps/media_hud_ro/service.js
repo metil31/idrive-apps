@@ -53,11 +53,14 @@ function startService(ctx, deps) {
     };
     if (app && typeof app.on === 'function') app.on('shutdown', stop);
     function status() {
-        if (!settings.get('enabled')) return 'Afișare HUD dezactivată';
+        if (!settings.get('enabled')) return 'Afișare dezactivată';
         if (!awake) return 'Așteaptă starea READY';
         if (!player || !player.available) return 'Așteaptă conectarea sursei audio CarPlay';
         if (!playing || !track) return 'Așteaptă o melodie în redare';
-        return out.ready ? 'Afișare HUD activă' : 'Așteaptă rendererul HUD';
+        if (!out.ready) return 'Așteaptă rendererul';
+        if (out.layers.cluster) return out.layers.hud ? 'Media pe HUD și pe bord' : 'Media pe bord';
+        if (settings.get('show') === 'cluster') return 'Așteaptă harta activă pe bord';
+        return settings.get('show') === 'both' ? 'Media pe HUD · așteaptă harta pe bord' : 'Media pe HUD';
     }
     return { status, track: outputTrack, stop };
 }

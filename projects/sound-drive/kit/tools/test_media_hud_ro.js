@@ -6,7 +6,8 @@ const { Canvas } = require('../runtime/canvas');
 const { conditionOf } = require('../runtime/car');
 const { decodeTrack } = require('../../apps/media_hud_ro/media');
 const { startService } = require('../../apps/media_hud_ro/service');
-const { fitText } = require('../../apps/media_hud_ro/view');
+const { fitText, drawTrack } = require('../../apps/media_hud_ro/view');
+const { AlbumArt } = require('../../apps/media_hud_ro/album-art');
 
 const song = { title: 'Și dacă', artist: 'Țapinarii' };
 const metadata = { currentItemMetadata: [
@@ -21,15 +22,42 @@ const fit = fitText(cv, song.title.repeat(12), 18, 394, style);
 assert.ok(fit.endsWith('...') && cv.textWidth(fit, 18, style) <= 394);
 
 async function verify() {
+    const coverPath = '/tmp/mediaramdisk_hu/covers/cover_wifi_7.jpg';
+    const trackWithCover = Object.assign({}, song, { cover: coverPath });
+    assert.deepStrictEqual(decodeTrack({ TITLE: song.title, ARTIST: song.artist, COVER_FILE: coverPath }), trackWithCover);
+    let loaded = 0;
+    const image = { data: Buffer.from([180, 32, 89, 255]), width: 1, height: 1 };
+    const art = new AlbumArt(() => { loaded++; return Promise.resolve({ bytes: Buffer.alloc(4), stamp: '1' }); }, () => image);
+    assert.strictEqual(art.get(trackWithCover, false), null);
+    assert.strictEqual(art.get(Object.assign({}, song, { cover: '/etc/cover.jpg' }), true), null);
+    assert.strictEqual(loaded, 0);
+    assert.strictEqual(art.get(trackWithCover, true), null);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.strictEqual(art.get(trackWithCover, true), image);
+    const artCanvas = new Canvas(410, 56).clear();
+    drawTrack(artCanvas, trackWithCover, image);
+    assert.ok(artCanvas.d.some((pixel, i, data) => i % 4 === 0 && pixel === 180 && data[i + 1] === 32));
+    assert.strictEqual(art.get(Object.assign({}, trackWithCover, { title: 'Altă melodie' }), true), null);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.strictEqual(art.get(Object.assign({}, trackWithCover, { title: 'Altă melodie' }), true), null);
+
     const clients = [], watches = new Map();
     class Renderer extends EventEmitter {
-        constructor() { super(); this.frames = []; clients.push(this); }
+        constructor() {
+            super();
+            this.frames = [];
+            this.specs = [];
+            this.removed = [];
+            this.targets = 'map:1088x480,panel:1920x720,hud:800x480';
+            clients.push(this);
+        }
         connect() { this.emit('ready'); }
-        image(spec) { this.spec = spec; return 1; }
+        image(spec) { this.spec = spec; this.specs.push(spec); return this.specs.length; }
         pixels(ref, rects, bytes) { this.frames.push(bytes); return true; }
         set(ref, change) { this.change = change; }
-        drop() { this.dropped = true; }
+        drop(ref) { this.removed.push(ref); this.dropped = true; }
         close() { this.closed = true; }
+        status() { this.asked = true; }
     }
     const values = { enabled: true, positionX: 0, positionY: 350 };
     let changed;
@@ -63,10 +91,31 @@ async function verify() {
         values.positionX = -120;
         values.positionY = 200;
         changed();
-        assert.deepStrictEqual(cr.change, { x: 75, y: 172 });
+        assert.deepStrictEqual(cr.change, { x: 75, y: 172, w: 410, h: 56 });
         assert.strictEqual(cr.frames.length, 1, 'changing position reuses the pixels');
         player.currentItemMetadata({ title: 'Altă melodie', artist: 'Alt artist' });
         assert.strictEqual(cr.frames.length, 2);
+        values.hudSize = 150;
+        changed();
+        assert.strictEqual(cr.change.w, 615);
+        values.show = 'both';
+        changed();
+        assert.ok(cr.asked);
+        cr.emit('status', 'layer 8 video of waze-on-cluster on map, content z 0: shown');
+        assert.deepStrictEqual([cr.spec.target, cr.spec.x, cr.spec.y], ['map', 339, 57]);
+        const host = { into: 'panel', shown: 1, x: 440, y: 150, w: 544, h: 240 };
+        cr.emit('host', 'map', host);
+        cr.emit('status', 'layer 8 video of unrelated on panel, content z 0: shown');
+        assert.strictEqual(cr.specs.length, 2);
+        cr.emit('status', 'layer 8 video of waze-on-cluster on panel, content z 0: shown');
+        assert.deepStrictEqual([cr.spec.target, cr.spec.x, cr.spec.y, cr.spec.w, cr.spec.h], ['panel', 610, 179, 205, 28]);
+        values.clusterX = -200;
+        values.clusterSize = 80;
+        changed();
+        assert.strictEqual(cr.change.w, 164);
+        assert.strictEqual(cr.change.x, 530);
+        cr.emit('status', 'layer 8 video of waze-on-cluster on panel, content z 0: stalled');
+        assert.ok(cr.removed.includes(3) && !cr.removed.includes(1), 'stalled map drops only the board layer');
         player.playerState('PLAYER_STATE_PAUSE');
         assert.ok(cr.dropped && cr.closed);
         assert.strictEqual(service.track(), null);
@@ -84,7 +133,7 @@ async function verify() {
         assert.strictEqual(service.track(), null);
     } finally { service.stop(); }
 }
-verify().then(() => console.log('Media HUD România: redare și poziție verificate'), (error) => {
+verify().then(() => console.log('Media HUD România: redare, copertă, dimensiune și hartă găzduită verificate'), (error) => {
     console.error(error);
     process.exitCode = 1;
 });

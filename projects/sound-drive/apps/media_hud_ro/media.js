@@ -14,7 +14,7 @@ function textValue(value) {
 
 function decodeTrack(value) {
     const data = field(value, 'currentItemMetadata');
-    let title = '', artist = '';
+    let title = '', artist = '', cover = '';
     if (Array.isArray(data)) {
         for (const entry of data) {
             if (!entry) continue;
@@ -22,12 +22,15 @@ function decodeTrack(value) {
             const value = entry.value === undefined ? entry.stringValue : entry.value;
             if (key === 'TITLE') title = textValue(value);
             if (key === 'ARTIST') artist = textValue(value);
+            if (key === 'COVER_FILE') cover = textValue(value);
         }
     } else if (data && typeof data === 'object') {
         title = textValue(data.TITLE || data.title);
         artist = textValue(data.ARTIST || data.artist);
+        cover = textValue(data.COVER_FILE || data.coverFile);
     }
-    return title ? { title, artist } : null;
+    if (!title) return null;
+    return cover ? { title, artist, cover } : { title, artist };
 }
 
 function isPlaying(value) {

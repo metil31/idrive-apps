@@ -20,6 +20,8 @@ Butonul **Test Waze** verifică dacă aplicația poate citi ecranul central. Cu 
 
 Aplicație separată pentru melodia și artistul din CarPlay. În Setări poți muta textul pe orizontală și verticală. Implicit apare sub poziția de jos a ETA. Se ascunde la pauză sau când se deconectează sursa CarPlay. Pentru a trece de la afișarea integrată în HUD România 0.1.1 la aplicația separată, actualizează mai întâi HUD România la 0.1.2. [Credite și licențe](projects/sound-drive/apps/media_hud_ro/NOTICE).
 
+Din versiunea 0.1.1 poți alege HUD, bord sau ambele. Mărimea și poziția se reglează separat. Pe bord, textul urmează harta activă Maps on cluster, inclusiv în tema care o găzduiește. Opțiunea **Coperta albumului** este dezactivată implicit și citește imaginea JPEG locală dacă iDrive o furnizează pentru piesa curentă.
+
 ## Speed Limit România
 
 În secțiunea HUD, dimensiunea semnului poate fi redusă până la 40 px. Pentru dimensiuni sub 64 px sunt disponibile treptele 40, 48 și 56 px.

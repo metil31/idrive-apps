@@ -1,8 +1,8 @@
 {
   "id": "media_hud_ro",
   "title": "Media HUD România",
-  "description": "Melodia și artistul din CarPlay pe HUD-ul BMW iDrive 7, cu poziție reglabilă.",
-  "version": "0.1.0",
+  "description": "Melodia și artistul din CarPlay pe HUD și pe harta din bord, cu poziție și mărime reglabile.",
+  "version": "0.1.1",
   "language": "ro",
   "license": "MIT",
   "vendor": "custom",
@@ -29,10 +29,21 @@
     "buttons": [["BTN_SETTINGS", "Setări"]]
   }],
   "settings": [
-    { "key": "enabled", "label": "Melodie și artist pe HUD", "type": "bool", "default": true },
-    { "key": "positionX", "label": "Poziție stânga / dreapta", "type": "number", "unit": "px", "default": 0,
+    { "key": "enabled", "label": "Afișează melodia și artistul", "type": "bool", "default": true },
+    { "key": "show", "label": "Afișează pe", "type": "choice", "default": "hud",
+      "options": [["hud", "HUD"], ["cluster", "Bord"], ["both", "HUD și bord"]] },
+    { "key": "albumArt", "label": "Coperta albumului", "type": "bool", "default": false },
+    { "key": "positionX", "label": "HUD stânga / dreapta", "type": "number", "unit": "px", "default": 0,
       "steps": [-180, -150, -120, -90, -60, -30, 0, 30, 60, 90, 120, 150, 180] },
-    { "key": "positionY", "label": "Poziție sus / jos", "type": "number", "unit": "px", "default": 350,
-      "steps": [110, 140, 170, 200, 230, 260, 290, 320, 350, 380, 410, 440] }
+    { "key": "positionY", "label": "HUD sus / jos", "type": "number", "unit": "px", "default": 350,
+      "steps": [110, 140, 170, 200, 230, 260, 290, 320, 350, 380, 410, 440] },
+    { "key": "hudSize", "label": "Mărime pe HUD", "type": "number", "unit": "%", "default": 100,
+      "steps": [60, 70, 80, 90, 100, 110, 120, 135, 150] },
+    { "key": "clusterX", "label": "Bord stânga / dreapta", "type": "number", "unit": "px", "default": 0,
+      "steps": [-300, -250, -200, -150, -100, -50, 0, 50, 100, 150, 200, 250, 300] },
+    { "key": "clusterY", "label": "Bord sus / jos", "type": "number", "unit": "px", "default": 85,
+      "steps": [45, 65, 85, 110, 140, 170, 200, 230, 260, 290, 320, 350, 380, 410, 440] },
+    { "key": "clusterSize", "label": "Mărime pe bord", "type": "number", "unit": "%", "default": 100,
+      "steps": [60, 70, 80, 90, 100, 110, 120, 135, 150] }
   ]
 }
