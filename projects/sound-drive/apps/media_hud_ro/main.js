@@ -1,7 +1,7 @@
 'use strict';
 
 const mgu = require('./kit/mgu');
-const { Canvas } = require('./kit/canvas');
+const { Canvas, ScaledCanvas } = require('./kit/canvas');
 const { conditionOf } = require('./kit/car');
 const { ClusterRender } = require('./cluster_render_client');
 const { startService } = require('./service');
@@ -10,7 +10,7 @@ const { fitText } = require('./view');
 mgu.run({
     background(ctx) {
         return startService(ctx, {
-            Canvas, conditionOf,
+            Canvas, ScaledCanvas, conditionOf,
             makeClient: () => new ClusterRender('media_hud_ro'),
         });
     },

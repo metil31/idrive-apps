@@ -8,7 +8,7 @@ const MEDIA = 'de.bmw.infotainment.entertainment.mediaplayer.MediaPlayer';
 
 function startService(ctx, deps) {
     const { signals, settings, log, app } = ctx;
-    const out = new MediaOutput(deps.makeClient, deps.Canvas);
+    const out = new MediaOutput(deps.makeClient, deps.Canvas, deps.ScaledCanvas);
     let awake = false, track = null, playing = false, stopped = false, player = null, wasAvailable = false;
     const subs = [];
     const outputTrack = () => settings.get('enabled') && awake && player && player.available && playing ? track : null;

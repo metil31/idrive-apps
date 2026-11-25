@@ -3,7 +3,8 @@
 const { MAP, hostArea, mapDisplays } = require('./map-area');
 const { AlbumArt } = require('./album-art');
 
-const HUD_WIDTH = 200, CLUSTER_WIDTH = 410, HEIGHT = 56;
+const HUD_TEXTURE = { w: 200, h: 56, scale: 1 };
+const CLUSTER_TEXTURE = { w: 410, h: 68, scale: 2 };
 const HUD = { x: 0, y: 0, w: 800, h: 480 };
 const TITLE = { align: 'center', font: 'bold', literal: true };
 const ARTIST = { align: 'center', font: 'label', literal: true };
@@ -12,24 +13,27 @@ const ARTIST_LEFT = { font: 'label', literal: true };
 
 function drawTrack(cv, track, cover, pill = false) {
     const titleStyle = cover ? TITLE_LEFT : TITLE, artistStyle = cover ? ARTIST_LEFT : ARTIST;
-    const width = cv.w - (pill ? (cover ? 94 : 40) : (cover ? 70 : 16));
-    const title = fitText(cv, track.title, 18, width, titleStyle);
-    const artist = track.artist ? fitText(cv, track.artist, 15, width, artistStyle) : '';
-    const textWidth = Math.max(cv.textWidth(title, 18, titleStyle), cv.textWidth(artist, 15, artistStyle));
-    const coverWidth = cover ? 54 : 0;
+    const side = pill ? 48 : 44, gap = pill ? 12 : 10;
+    const coverWidth = cover ? side + gap : 0;
+    const padding = pill ? 56 : 16;
+    const width = cv.w - padding - coverWidth;
+    const titleSize = pill ? 19 : 18, artistSize = pill ? 16 : 15;
+    const title = fitText(cv, track.title, titleSize, width, titleStyle);
+    const artist = track.artist ? fitText(cv, track.artist, artistSize, width, artistStyle) : '';
+    const textWidth = Math.max(cv.textWidth(title, titleSize, titleStyle), cv.textWidth(artist, artistSize, artistStyle));
     if (pill) {
-        const pillWidth = Math.ceil(textWidth + coverWidth + 40);
-        cv.roundRect((cv.w - pillWidth) / 2, 3, pillWidth, 50, 25, [23, 25, 29, 208]);
+        const pillWidth = Math.ceil(textWidth + coverWidth + padding);
+        cv.roundRect((cv.w - pillWidth) / 2, 3, pillWidth, cv.h - 6, (cv.h - 6) / 2, [23, 25, 29, 208]);
     }
     let x = cv.w / 2;
     if (cover) {
-        const side = 44, gap = 10;
         const imageX = Math.round((cv.w - coverWidth - textWidth) / 2);
-        cv.drawImage(cover.data, cover.width, cover.height, imageX, 6, side, side);
+        cv.drawImage(cover.data, cover.width, cover.height, imageX, (cv.h - side) / 2, side, side);
         x = imageX + side + gap;
     }
-    cv.text(title, x, artist ? 22 : 32, 18, '#ffffff', titleStyle);
-    if (artist) cv.text(artist, x, 43, 15, '#dce7f4', artistStyle);
+    const y = (cv.h - HUD_TEXTURE.h) / 2;
+    cv.text(title, x, y + (artist ? 22 : 32), titleSize, '#ffffff', titleStyle);
+    if (artist) cv.text(artist, x, y + 43, artistSize, '#dce7f4', artistStyle);
 }
 
 function fitText(cv, text, size, width, opts) {
@@ -49,9 +53,9 @@ function bounded(value, fallback, min, max) {
     return Number.isFinite(value) ? Math.round(Math.max(min, Math.min(max, value))) : fallback;
 }
 
-function place(area, cx, cy, scale, textureWidth) {
-    scale = Math.min(scale, area.w / textureWidth, area.h / HEIGHT);
-    const w = Math.round(textureWidth * scale), h = Math.round(HEIGHT * scale);
+function place(area, cx, cy, scale, texture) {
+    scale = Math.min(scale, area.w / texture.w, area.h / texture.h);
+    const w = Math.round(texture.w * scale), h = Math.round(texture.h * scale);
     if (h < 16) return null;
     return {
         x: Math.max(area.x, Math.min(area.x + area.w - w, Math.round(cx - w / 2))),
@@ -61,9 +65,10 @@ function place(area, cx, cy, scale, textureWidth) {
 }
 
 class MediaOutput {
-    constructor(makeClient, Canvas, artwork = new AlbumArt()) {
+    constructor(makeClient, Canvas, ScaledCanvas, artwork = new AlbumArt()) {
         this.makeClient = makeClient;
         this.Canvas = Canvas;
+        this.ScaledCanvas = ScaledCanvas;
         this.artwork = artwork;
         this.layers = {};
         this.stop();
@@ -115,7 +120,7 @@ class MediaOutput {
         const show = selected === 'cluster' || selected === 'both' ? selected : 'hud';
         const hud = show !== 'cluster' && place(HUD,
             400 + bounded(settings.get('positionX'), 0, -180, 180),
-            bounded(settings.get('positionY'), 350, 110, 440), bounded(settings.get('hudSize'), 100, 60, 150) / 100, HUD_WIDTH);
+            bounded(settings.get('positionY'), 350, 110, 440), bounded(settings.get('hudSize'), 100, 60, 150) / 100, HUD_TEXTURE);
         this.sync('hud', 'hud', hud, track, cover);
         if (show === 'hud') { this.drop('cluster'); return; }
 
@@ -137,11 +142,12 @@ class MediaOutput {
             cy = area.y + (cy - area.sy) * vertical;
             scale *= Math.min(horizontal, vertical);
         }
-        this.sync('cluster', target, place(area, cx, cy, scale, CLUSTER_WIDTH), track, cover);
+        this.sync('cluster', target, place(area, cx, cy, scale, CLUSTER_TEXTURE), track, cover);
     }
 
     sync(name, target, rect, track, cover) {
-        const textureWidth = name === 'hud' ? HUD_WIDTH : CLUSTER_WIDTH;
+        const cluster = name === 'cluster';
+        const texture = cluster ? CLUSTER_TEXTURE : HUD_TEXTURE;
         let layer = this.layers[name];
         if (!rect || layer && layer.target !== target) {
             this.drop(name);
@@ -150,7 +156,8 @@ class MediaOutput {
         if (!rect) return;
         if (!layer) {
             const ref = this.client.image(Object.assign({ target, klass: 'overlay', z: 11,
-                iw: textureWidth, ih: HEIGHT, fps: 4, contend: 0, yield: 1 }, rect));
+                iw: texture.w * texture.scale, ih: texture.h * texture.scale,
+                sampling: cluster ? 'bilinear' : 'nearest', fps: 4, contend: 0, yield: 1 }, rect));
             if (!ref) return;
             layer = this.layers[name] = { ref, target, rect, key: '' };
         } else if (Object.keys(rect).some((key) => rect[key] !== layer.rect[key])) {
@@ -159,9 +166,11 @@ class MediaOutput {
         }
         const key = JSON.stringify([track.title, track.artist, cover ? track.cover : null]);
         if (layer.key === key) return;
-        const cv = new this.Canvas(textureWidth, HEIGHT).clear();
-        drawTrack(cv, track, cover, name === 'cluster');
-        const bytes = Buffer.from(cv.d.buffer, cv.d.byteOffset, cv.d.byteLength);
+        const cv = cluster ? new this.ScaledCanvas(texture.w, texture.h, texture.scale)
+            : new this.Canvas(texture.w, texture.h);
+        drawTrack(cv.clear(), track, cover, cluster);
+        const pixels = cluster ? cv.canvas.d : cv.d;
+        const bytes = Buffer.from(pixels.buffer, pixels.byteOffset, pixels.byteLength);
         if (this.client.pixels(layer.ref, null, bytes)) layer.key = key;
     }
 

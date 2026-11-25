@@ -2,7 +2,7 @@
 
 const assert = require('assert');
 const EventEmitter = require('events');
-const { Canvas } = require('../runtime/canvas');
+const { Canvas, ScaledCanvas } = require('../runtime/canvas');
 const { conditionOf } = require('../runtime/car');
 const { decodeTrack } = require('../../apps/media_hud_ro/media');
 const { startService } = require('../../apps/media_hud_ro/service');
@@ -46,11 +46,13 @@ async function verify() {
     for (const [label, x, , size, , options] of labels) {
         assert.ok(label.endsWith('...') && x + narrow.textWidth(label, size, options) <= 200);
     }
-    const pillCanvas = new Canvas(410, 56).clear();
+    const pillCanvas = new Canvas(410, 68).clear();
     drawTrack(pillCanvas, song, image, true);
     const hasPill = (bytes) => bytes.some((value, i) =>
         i % 4 === 0 && value === 23 && bytes[i + 1] === 25 && bytes[i + 2] === 29 && bytes[i + 3] === 208);
     assert.ok(hasPill(pillCanvas.d) && pillCanvas.d[3] === 0, 'map pill has a translucent centre and clear corners');
+    assert.strictEqual(pillCanvas.d[(5 * 410 + 205) * 4 + 3], 208, 'pill extends above the cover');
+    assert.strictEqual(pillCanvas.d[(62 * 410 + 205) * 4 + 3], 208, 'pill extends below the cover');
     assert.ok(!hasPill(artCanvas.d), 'the windshield texture stays transparent behind the text');
     assert.strictEqual(art.get(Object.assign({}, trackWithCover, { title: 'Altă melodie' }), true), null);
     await new Promise((resolve) => setImmediate(resolve));
@@ -90,7 +92,7 @@ async function verify() {
         settings: { get: (key) => values[key], onChange: (fn) => { changed = fn; } },
         log: { warn: (error) => { throw new Error(error); } },
         app: new EventEmitter(),
-    }, { Canvas, conditionOf, makeClient: () => new Renderer() });
+    }, { Canvas, ScaledCanvas, conditionOf, makeClient: () => new Renderer() });
     try {
         await new Promise((resolve) => setImmediate(resolve));
         const ready = watches.get('VehicleCondition').VehicleCondition;
@@ -117,14 +119,18 @@ async function verify() {
         changed();
         assert.ok(cr.asked);
         cr.emit('status', 'layer 8 video of waze-on-cluster on map, content z 0: shown');
-        assert.deepStrictEqual([cr.spec.target, cr.spec.x, cr.spec.y], ['map', 339, 57]);
-        assert.ok(hasPill(cr.frames[cr.frames.length - 1]), 'the map uses the pill');
+        assert.deepStrictEqual([cr.spec.target, cr.spec.x, cr.spec.y], ['map', 339, 51]);
+        assert.deepStrictEqual([cr.spec.iw, cr.spec.ih, cr.spec.sampling], [820, 136, 'bilinear']);
+        const boardFrame = cr.frames[cr.frames.length - 1];
+        assert.strictEqual(boardFrame.length, 820 * 136 * 4);
+        assert.ok(hasPill(boardFrame), 'the map uses a high-resolution translucent pill');
         const host = { into: 'panel', shown: 1, x: 440, y: 150, w: 544, h: 240 };
         cr.emit('host', 'map', host);
         cr.emit('status', 'layer 8 video of unrelated on panel, content z 0: shown');
         assert.strictEqual(cr.specs.length, 2);
         cr.emit('status', 'layer 8 video of waze-on-cluster on panel, content z 0: shown');
-        assert.deepStrictEqual([cr.spec.target, cr.spec.x, cr.spec.y, cr.spec.w, cr.spec.h], ['panel', 610, 179, 205, 28]);
+        assert.deepStrictEqual([cr.spec.target, cr.spec.x, cr.spec.y, cr.spec.w, cr.spec.h, cr.spec.iw, cr.spec.ih],
+            ['panel', 610, 176, 205, 34, 820, 136]);
         values.clusterX = -200;
         values.clusterSize = 80;
         changed();
