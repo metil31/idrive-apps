@@ -1,10 +1,16 @@
 # Aplicații iDrive 7 România
 
-O singură sursă MGU Store pentru **Sound Drive în română** și **Speed Limit România**. Sound Drive Audio apare ca dependență pentru Sound Drive. Aplicațiile se aleg și se instalează separat din aceeași listă.
+O singură sursă MGU Store pentru **Sound Drive în română**, **Speed Limit România** și **HUD România**. Sound Drive Audio apare ca dependență pentru Sound Drive. Aplicațiile se aleg și se instalează separat din aceeași listă.
 
 În MGU Store, adaugă `metil31/idrive-apps` și selectează ramura `mgu-romania`. Pentru afișarea limitei pe HUD și în instrumentar, Speed Limit România folosește `cluster-render` din [robertnisipeanu/idrive-apps](https://github.com/robertnisipeanu/idrive-apps).
 
 Proiect comunitar independent pentru sisteme BMW compatibile.
+
+## HUD România
+
+Semnalizările și avariile, plus ora sosirii, timpul și distanța rămase dacă iDrive primește valori prin CarPlay. Cu mașina în READY, aplicația rulează în fundal și își ascunde stratul când nu are date de afișat. Opțiunile din Setări controlează fiecare funcție, poziția și luminozitatea.
+
+Necesită `cluster-render`. ETA pe Waze cu iPhone depinde de versiunile aplicației și ale unității BMW. În pagina aplicației se vede dacă sosesc datele de traseu. Versiunea 0.1.0 este verificată cu semnale simulate. [Credite și licențe](projects/sound-drive/apps/hud_romania/NOTICE).
 
 ## Surse și licențe
 

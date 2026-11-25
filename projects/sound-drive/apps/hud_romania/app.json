@@ -1,0 +1,49 @@
+{
+  "id": "hud_romania",
+  "title": "HUD România",
+  "description": "Semnalizări și sosirea estimată din CarPlay pe HUD-ul BMW iDrive 7.",
+  "version": "0.1.0",
+  "language": "ro",
+  "license": "MIT",
+  "vendor": "custom",
+  "loggingId": "HUDR",
+  "mguHmi": ["ID7"],
+  "autostart": true,
+  "requires": { "cluster-render": "0.3.7" },
+  "signals": {
+    "de.bmw.infrastructure.VehicleCondition": {
+      "_optional": "Starea READY, necesară pentru afișare",
+      "VehicleCondition": "s"
+    },
+    "de.bmw.body.Light": {
+      "_optional": "Semnalizările și avariile",
+      "StatusFunctionsIndicators": "s",
+      "StatusFunctionsIndicators2": "s"
+    },
+    "de.bmw.infotainment.navigation.projectedmodeguiding.ProjectedModeGuiding": {
+      "_instances": "Main_Instance",
+      "_optional": "Estimările de sosire furnizate de CarPlay",
+      "waypoints": "rs"
+    },
+    "de.bmw.infotainment.a4a.carplay.CarPlayManager": {
+      "_instances": "CarPlayManagerInst1",
+      "_optional": "Starea ghidajului CarPlay",
+      "projectedGuidanceActive": "rs",
+      "projectedGuidanceMetadataAvailable": "rs"
+    }
+  },
+  "screens": [{
+    "name": "MAIN",
+    "kind": "canvas",
+    "title": "HUD România",
+    "buttons": [["BTN_SETTINGS", "Setări"]]
+  }],
+  "settings": [
+    { "key": "indicators", "label": "Semnalizări și avarii", "type": "bool", "default": true },
+    { "key": "eta", "label": "Estimare sosire CarPlay", "type": "bool", "default": true },
+    { "key": "position", "label": "Poziție pe HUD", "type": "choice", "default": "low",
+      "options": [["high", "Sus"], ["middle", "Mijloc"], ["low", "Jos"]] },
+    { "key": "brightness", "label": "Luminozitate", "type": "choice", "default": "normal",
+      "options": [["dim", "Redusă"], ["normal", "Normală"]] }
+  ]
+}
