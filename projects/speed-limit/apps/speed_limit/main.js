@@ -321,7 +321,7 @@ function signState(e, t) {
     if (show !== t && show !== 'both') return 'Off';
     if (!e.active) return e.enabled() ? 'Car off' : 'Off';
     if (!o.connected) return 'Unavailable (no cluster-render)';
-    if (t === 'cluster' && !o.mapBusy) return 'Waiting for the phone map';
+    if (t === 'cluster' && !o.mapBusy && !o.panelMapBy) return 'Waiting for the phone map';
     if (!e.view) return 'No limit to show';
     const st = o[t === 'cluster' ? 'cluster' : 'hud'];
     return /^shown/.test(st) ? 'Shown' : /^waiting|^parked/.test(st) ? 'Waiting (' + st + ')' : 'Waiting';

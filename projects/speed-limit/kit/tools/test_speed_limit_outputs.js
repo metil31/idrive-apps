@@ -108,14 +108,32 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
     const mref = map[0] && map[0].ref;
     check(ops('set').some((m) => m.ref === mref && m.visible === 0), 'map layer hidden when the phone map goes (its own layer does not count)');
 
+    const host = { ev: 'host', target: 'map', into: 'panel', shown: 1, x: 440, y: 150, w: 544, h: 240,
+        src_x: 0, src_y: 0, src_w: 1088, src_h: 480 };
     statusText = 'layer 9 effect of custom_theme on panel, content z 1: shown\nlayer 12 video of phone_map on panel, content z 2: shown\n';
-    send(client, { ev: 'host', target: 'map', into: 'panel', shown: 1 });
+    send(client, host);
     await wait(30);
     out.tick(Date.now());
     await wait(100);
     check(out.diag().mapHost === 'panel' && out.diag().panelBy.includes('custom_theme') && !out.diag().mapBusy,
         'third-party panel and hosted map are reported independently of the standard map');
-    check(!ops('layer').some((m) => m.target === 'panel'), 'diagnostics never draw over the theme');
+    check(!ops('layer').some((m) => m.target === 'panel'), 'a foreign video cannot activate the panel sign');
+    statusText = 'layer 9 effect of custom_theme on panel, content z 1: shown\nlayer 12 video of waze-on-cluster on panel, content z 2: shown\n';
+    out.tick(Date.now() + 3000);
+    await wait(150);
+    const hosted = ops('layer').find((m) => m.target === 'panel');
+    check(hosted && hosted.class === 'overlay' && hosted.contend === 0 && hosted.x === 613 && hosted.y === 325 &&
+        hosted.w === 55 && hosted.h === 55 && hosted.iw === 110 && hosted.ih === 110,
+        'the sign follows the map into the theme, with its size and position scaled to the host');
+    settings.v.clusterX = -180;
+    out.update({ limit: 60 }, Date.now());
+    await wait(100);
+    check(ops('set').some((m) => m.ref === hosted.ref && m.x === 523), 'saved horizontal adjustments follow the map');
+    settings.v.clusterX = 0;
+    statusText = 'layer 12 video of waze-on-cluster on panel, content z 2: stalled\n';
+    out.tick(Date.now() + 7000);
+    await wait(100);
+    check(out.diag().panelMapBy === '' && ops('drop').some((m) => m.ref === hosted.ref), 'the hosted sign leaves when the map stalls');
     send(client, { ev: 'host', target: 'map', into: '', shown: 0 });
     await wait(30);
     check(out.diag().mapHost === '', 'when the host goes away, the old host is forgotten');
@@ -141,7 +159,7 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
     check(ops('set').filter((m) => m.ref === hx.ref && m.visible === 0).length === hiddenBefore + 1, '"Cluster": HUD sign hidden');
 
     // never the panel (the whole-cluster slot BMW's trip and board computer content uses)
-    check(!ops('layer').some((m) => m.target === 'panel'), 'nothing on the panel target (BMW\'s trip info keeps its slot)');
+    check(ops('layer').filter((m) => m.target === 'panel').length === 1, 'the panel was used only inside the hosted map');
 
     // a speed camera ahead: the pill joined to the sign, a wider picture; resent only when the distance step changes
     settings.v.show = 'both';
