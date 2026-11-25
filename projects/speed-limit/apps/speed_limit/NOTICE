@@ -1,6 +1,6 @@
 Speed Limit România — Romanian adaptation of the Speed Limit app from hexlay/idrive7-custom-apps.
 The Romanian adaptation adds the offline Romania map and local defaults.
-Imported from metil31/idrive7-speed-limit-romania at aa5c9748c3d3c22032a55051aa8c881cc337af49 (2026-11-25).
+Imported from metil31/idrive7-speed-limit-romania at 77b05b0d6bf6aebda431770fd37e3dd2b7ecca1d (2026-11-25).
 Application code: GPL-3.0-or-later, with the existing MIT notices for incorporated code.
 
 Offline road database (romania.pack): © OpenStreetMap contributors.
@@ -9,3 +9,6 @@ Attribution: https://www.openstreetmap.org/copyright
 License: https://opendatacommons.org/licenses/odbl/1-0/
 The complete machine-readable database is included as romania.pack.
 Original extract: https://download.geofabrik.de/europe/romania.html
+Map data date: 2026-11-24.
+Local correction for Calea Victoriei, based on the Brigada Rutiera notice of 2025-04-11:
+https://agerpres.ro/comunicate/2025/04/11/comunicat-de-presa---brigada-rutiera--1439889
