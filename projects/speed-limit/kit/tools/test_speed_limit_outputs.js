@@ -159,6 +159,14 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
     await wait(100);
     check(got.filter((g) => g.t === 'F' && g.ref === hl.ref).length === framesNow + 1, '"---" again: nothing sent again');
 
+    settings.v.hudSize = 40;
+    out.update({ limit: 130, camera: '350 m' }, Date.now());
+    await wait(150);
+    const small = ops('layer').filter((m) => m.target === 'hud').slice(-1)[0];
+    check(small.h === 40 && small.w > 40 && small.x + 20 === hx.x + 44 + 40 &&
+        got.some((g) => g.t === 'F' && g.ref === small.ref && g.bytes === small.w * 40 * 4),
+    '40 px HUD sign keeps its centre and sends the attached camera badge');
+
     out.stop();
     await wait(200);
     // (cluster-render removes a client's layers with its connection: the close is what gives the HUD and map back)

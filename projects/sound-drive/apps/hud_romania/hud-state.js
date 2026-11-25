@@ -27,8 +27,15 @@ function field(v, key) {
     return Object.prototype.hasOwnProperty.call(v, key) ? unwrap(v[key]) : undefined;
 }
 function number(v) {
+    v = unwrap(v);
     if (typeof v === 'string' && /^\d+(?:[.,]\d+)?$/.test(v.trim())) v = Number(v.trim().replace(',', '.'));
     return typeof v === 'number' && isFinite(v) && v >= 0 && v < 4294967295 ? v : null;
+}
+function bool(v) {
+    v = unwrap(v);
+    if (v === true || v === 1 || v === 'true' || v === '1') return true;
+    if (v === false || v === 0 || v === 'false' || v === '0') return false;
+    return null;
 }
 function indicator(v) {
     const raw = field(v, 'controlIndicateDirection');
@@ -46,21 +53,28 @@ function indicator(v) {
 }
 
 // Read-only CarPlay DestinationInfo fields, as documented by Aref's MIT ETA Bar.
+function waypointList(v) {
+    v = unwrap(v);
+    return Array.isArray(v) ? v : field(v, 'waypoints');
+}
+
 function decodeWaypoints(v) {
-    const route = Array.isArray(v) ? v : field(v, 'waypoints');
+    const route = waypointList(v);
     if (!Array.isArray(route) || route.length === 0) return null;
-    const final = route.filter((p) => p && p.isCheckeredFlag === true);
-    const d = final.length ? final[final.length - 1] : route[route.length - 1];
+    const destinations = route.map(unwrap);
+    const final = destinations.filter((p) => p && bool(p.isCheckeredFlag) === true);
+    const d = final.length ? final[final.length - 1] : destinations[destinations.length - 1];
     if (!d || typeof d !== 'object') return null;
-    const stamp = d.estimatedArrivalTime || {}, t = stamp.time || {};
+    const stamp = unwrap(d.estimatedArrivalTime) || {}, t = unwrap(stamp.time) || {};
     const h = number(t.hour === undefined ? t.hours : t.hour), m = number(t.minute === undefined ? t.minutes : t.minute);
-    const f = d.formattedDistance || {}, raw = number(f.rawDistance), formatted = number(f.distance);
+    const f = unwrap(d.formattedDistance) || {}, raw = number(f.rawDistance), formatted = number(f.distance);
     const unit = f.unit && typeof f.unit === 'object' ? (f.unit.name || f.unit.value) : f.unit;
     const metres = raw !== null ? raw : formatted !== null && METRES[unit] ? formatted * METRES[unit] : null;
     const travel = number(d.travelTime);
     const seconds = travel !== null && travel > 0 && travel < LIMIT ? travel : null;
     const pad = (n) => String(n).padStart(2, '0');
-    const arrival = !t.invalid && !(stamp.date && stamp.date.invalid) && Number.isInteger(h) && h < 24 &&
+    const date = unwrap(stamp.date) || {};
+    const arrival = bool(t.invalid) !== true && bool(date.invalid) !== true && Number.isInteger(h) && h < 24 &&
         Number.isInteger(m) && m < 60 ? pad(h) + ':' + pad(m) : null;
     if ((metres === 0 && !seconds) || travel === 0 && metres === null) return null;
     return arrival || seconds || metres > 0 ? { arrival, seconds, metres } : null;
@@ -86,8 +100,10 @@ class HudState {
         this.awake = false;
         this.active = null;
         this.metadata = null;
+        this.provider = null;
+        this.waypointCount = null;
         this.route = null;
-        this.routeAt = 0;
+        this.routeAt = null;
         this.signal = 'off';
         this.signalAt = 0;
         this.blinkAt = 0;
@@ -96,22 +112,62 @@ class HudState {
     setReady(ready) {
         if (this.awake && !ready) {
             this.route = null;
+            this.routeAt = null;
+            this.waypointCount = null;
             this.signal = 'off';
         }
         this.awake = ready;
     }
 
     setFlag(key, v) {
-        const value = field(v, key);
-        if (typeof value !== 'boolean') return;
-        if (key === 'projectedGuidanceActive') this.active = value;
-        if (key === 'projectedGuidanceMetadataAvailable') this.metadata = value;
-        if (!value) this.route = null;
+        const value = bool(field(v, key));
+        if (value === null) return;
+        if (key === 'projectedGuidanceActive') {
+            this.active = value;
+            if (!value) this.route = null;
+        } else if (key === 'projectedGuidanceMetadataAvailable') {
+            if (this.metadata === true && !value) this.route = null;
+            this.metadata = value;
+        }
+    }
+
+    setProvider(v) {
+        const provider = field(v, 'guidingProvider');
+        const value = provider && typeof provider === 'object' ? (provider.name || unwrap(provider)) : provider;
+        if (typeof value !== 'string' && typeof value !== 'number') return;
+        const isCarPlay = value === 'CAR_PLAY' || value === '1' || value === 1;
+        if (this.provider === true && !isCarPlay) this.route = null;
+        this.provider = isCarPlay;
     }
 
     setWaypoints(v, now) {
-        this.route = this.active === false || this.metadata === false ? null : decodeWaypoints(unwrap(v));
+        const route = waypointList(v);
+        this.waypointCount = Array.isArray(route) ? route.length : null;
+        this.route = this.active === false ? null : decodeWaypoints(route);
         this.routeAt = now;
+    }
+
+    carplayRoute() {
+        return this.active === true || (this.active === null && (this.provider === true ||
+            (this.provider === null && this.metadata === true)));
+    }
+
+    etaStatus(now) {
+        if (this.active === false) return 'Ghidajul CarPlay este inactiv';
+        if (this.routeAt === null) return 'Așteaptă date de traseu CarPlay';
+        if (this.waypointCount === 0) return 'CarPlay a trimis o listă de destinații goală';
+        if (this.waypointCount === null) return 'Format de traseu CarPlay nerecunoscut';
+        if (!this.carplayRoute()) return 'Sursa traseului CarPlay nu este confirmată';
+        if (!this.route) return 'CarPlay nu a trimis valori pentru ETA';
+        if (!fresh(now, this.routeAt, ETA_MS)) return 'Datele de traseu nu mai sunt actuale';
+        return '';
+    }
+
+    etaDiagnostics() {
+        const status = (v) => v === null ? '—' : v ? 'da' : 'nu';
+        return 'Ghidaj activ ' + status(this.active) + '  ·  Metadate ' + status(this.metadata) +
+            '  ·  Furnizor CarPlay ' + status(this.provider) + '  ·  Destinații ' +
+            (this.waypointCount === null ? '—' : this.waypointCount);
     }
 
     setIndicator(v, now) {
@@ -126,7 +182,7 @@ class HudState {
         const direction = this.awake && settings.get('indicators') && fresh(now, this.signalAt, INDICATOR_MS)
             ? this.signal : 'off';
         const bright = ((now - this.blinkAt) % 800) < 400;
-        const eta = this.awake && settings.get('eta') && this.active === true && this.metadata !== false &&
+        const eta = this.awake && settings.get('eta') && this.carplayRoute() &&
             this.route && fresh(now, this.routeAt, ETA_MS) ? routeLabel(this.route) : '';
         return { direction, bright, eta };
     }

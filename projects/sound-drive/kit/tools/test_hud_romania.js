@@ -36,7 +36,21 @@ assert.strictEqual(state.view(2, cfg).eta, 'Sosire 18:42 · 24 min · 19 km');
 assert.strictEqual(state.view(0, cfg).eta, '');
 assert.strictEqual(state.view(1 + ETA_MS, cfg).eta, '');
 state.setFlag('projectedGuidanceMetadataAvailable', false);
-assert.strictEqual(state.view(2, cfg).eta, '');
+assert.ok(state.view(2, cfg).eta, 'working waypoints can be displayed without the metadata flag');
+state.setFlag('projectedGuidanceMetadataAvailable', true);
+state.setFlag('projectedGuidanceMetadataAvailable', false);
+assert.strictEqual(state.view(2, cfg).eta, '', 'a falling metadata flag invalidates the last sample');
+const projected = new HudState();
+projected.setReady(true);
+projected.setWaypoints({ waypoints: { value: [{ value: trip }] } }, 10);
+assert.strictEqual(projected.etaStatus(10), 'Sursa traseului CarPlay nu este confirmată');
+projected.setProvider({ guidingProvider: { name: 'CAR_PLAY' } });
+assert.strictEqual(projected.view(10, cfg).eta, routeLabel(route));
+assert.strictEqual(projected.etaStatus(10 + ETA_MS), 'Datele de traseu nu mai sunt actuale');
+projected.setProvider({ guidingProvider: 'ANDROID_AUTO' });
+assert.strictEqual(projected.view(10, cfg).eta, '');
+projected.setWaypoints([], 12);
+assert.strictEqual(projected.etaStatus(12), 'CarPlay a trimis o listă de destinații goală');
 state.setIndicator({ controlIndicateDirection: 3 }, 30);
 assert.deepStrictEqual(state.view(30, cfg), { direction: 'left', bright: true, eta: '' });
 assert.strictEqual(state.view(430, cfg).bright, false);
@@ -44,12 +58,12 @@ assert.strictEqual(state.view(30 + INDICATOR_MS, cfg).direction, 'off');
 
 const clients = [], watches = new Map();
 class Renderer extends EventEmitter {
-    constructor() { super(); this.frames = []; this.specs = []; clients.push(this); }
+    constructor() { super(); this.frames = []; this.specs = []; this.changes = []; this.dropped = []; clients.push(this); }
     connect() {}
     image(spec) { this.specs.push(spec); return this.specs.length; }
     pixels(ref, rects, bytes) { this.frames.push({ ref, rects, bytes }); return true; }
-    set(ref, changes) { this.changes = changes; }
-    drop(ref) { this.dropped = ref; }
+    set(ref, changes) { this.changes.push({ ref, ...changes }); }
+    drop(ref) { this.dropped.push(ref); }
     close() { this.closed = true; }
 }
 let clock = 1000;
@@ -63,13 +77,15 @@ try {
     watches.get('VehicleCondition').VehicleCondition({ statusConditionVehicle: 'FAHREN' });
     const cr = clients[0];
     cr.emit('ready');
-    assert.strictEqual(cr.specs.length, 1);
+    assert.strictEqual(cr.specs.length, 2);
     const spec = cr.specs[0];
     assert.strictEqual(spec.target, 'hud');
     assert.strictEqual(spec.klass, 'overlay');
     assert.strictEqual(spec.yield, 1);
     assert.strictEqual(cr.frames[0].bytes.length, spec.iw * spec.ih * 4);
-    assert.ok(cr.frames[0].bytes.some((v, index) => index % 4 === 3 && v > 0), 'visible arrows render pixels');
+    for (const frame of cr.frames) {
+        assert.strictEqual(frame.bytes[(15 * spec.iw + 20) * 4 + 3], 255, 'arrow centre has a solid fill');
+    }
     watches.get('CarPlayManager').projectedGuidanceActive({ projectedGuidanceActive: true });
     watches.get('ProjectedModeGuiding').waypoints(waypoints);
     assert.ok(service.view().eta.indexOf('18:42') !== -1, 'ETA can appear without opening the app');
@@ -79,15 +95,21 @@ try {
     cfg.changed();
     assert.strictEqual(cr.frames.length, before, 'no writes until the renderer is ready again');
     cr.emit('ready');
-    assert.strictEqual(cr.frames.length, before + 1);
-    assert.strictEqual(cr.specs.length, 1, 'the client restores the one layer after reconnecting');
+    assert.strictEqual(cr.frames.length, before + 3);
+    assert.ok(cr.frames.filter((f) => f.ref < 3).slice(-2).every((f) => f.bytes.every((v) => v === 0)), 'both arrows blink off');
+    assert.strictEqual(cr.specs.length, 3, 'the client restores layers after reconnecting');
+    settings.indicatorX = 40;
+    settings.indicatorY = 166;
+    settings.indicatorGap = 202;
+    cfg.changed();
+    assert.deepStrictEqual(cr.changes, [{ ref: 1, x: 319, y: 151 }, { ref: 2, x: 521, y: 151 }]);
     settings.position = 'high';
     cfg.changed();
-    assert.strictEqual(cr.changes.y, 122);
+    assert.deepStrictEqual(cr.changes[2], { ref: 3, x: 195, y: 122 });
     clock += INDICATOR_MS;
     watches.get('CarPlayManager').projectedGuidanceActive(false);
     assert.strictEqual(service.view().eta, '');
-    assert.strictEqual(cr.dropped, 1);
+    assert.deepStrictEqual(cr.dropped.slice().sort(), [1, 2, 3]);
     assert.strictEqual(cr.closed, true);
     watches.get('VehicleCondition').VehicleCondition({ statusConditionVehicle: 5 });
     watches.get('ProjectedModeGuiding').waypoints(waypoints);

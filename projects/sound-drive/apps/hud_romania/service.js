@@ -6,6 +6,7 @@ const { HudOutput } = require('./hud-view');
 const CONDITION = 'de.bmw.infrastructure.VehicleCondition';
 const LIGHT = 'de.bmw.body.Light';
 const GUIDANCE = 'de.bmw.infotainment.navigation.projectedmodeguiding.ProjectedModeGuiding';
+const PROVIDER = 'de.bmw.infotainment.navigation.guiding.Guidance';
 const CARPLAY = 'de.bmw.infotainment.a4a.carplay.CarPlayManager';
 
 function startService(ctx, deps) {
@@ -53,6 +54,7 @@ function startService(ctx, deps) {
         projectedGuidanceMetadataAvailable: flag('projectedGuidanceMetadataAvailable'),
     });
     watch(GUIDANCE, 'Main_Instance', { waypoints: (v) => state.setWaypoints(v, now()) });
+    watch(PROVIDER, 'Main_Instance', { guidingProvider: (v) => state.setProvider(v) });
     settings.onChange(tick);
     const timer = setInterval(tick, 100);
     if (timer.unref) timer.unref();
@@ -66,7 +68,7 @@ function startService(ctx, deps) {
         subscriptions.forEach((sub) => sub.shutdown().catch(() => {}));
     };
     if (app && typeof app.on === 'function') app.on('shutdown', stop);
-    return { state, out, view: () => state.view(now(), settings), stop };
+    return { state, out, view: () => state.view(now(), settings), etaStatus: () => state.etaStatus(now()), stop };
 }
 
 module.exports = { startService };

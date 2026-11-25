@@ -292,9 +292,9 @@ const OVER = ['0', '5', '10', '15', '20'];
 const NOLIMIT = ['nothing', 'dashes'];
 const CAMS = ['warn', 'off'];
 const FIXV = [0, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130];
-// the slider's sizes (positions 0..10) and the move step on each target
+// The slider sizes in step order, and the move step on each target.
 const SIZES = {
-    hud: [64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144],
+    hud: [40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144],
     map: [70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180],
 };
 const STEP = { hud: 10, map: 20 };
