@@ -6,6 +6,8 @@ const { Canvas } = require('../runtime/canvas');
 const { conditionOf } = require('../runtime/car');
 const { HudState, indicator, decodeWaypoints, routeLabel, ETA_MS, INDICATOR_MS } = require('../../apps/hud_romania/hud-state');
 const { startService } = require('../../apps/hud_romania/service');
+const { decodeTrack, isPlaying } = require('../../apps/hud_romania/media');
+const { fitText } = require('../../apps/hud_romania/hud-view');
 
 const trip = {
     estimatedArrivalTime: { time: { hour: 18, minute: 42 } },
@@ -26,6 +28,19 @@ assert.strictEqual(indicator({ value: { activeFunctionIndicateDirection: '8' } }
 assert.strictEqual(indicator({ controlIndicateDirection: 1, activeFunctionIndicateDirection: 'WARNBLINKEN_MANUELL' }), 'both');
 assert.strictEqual(indicator({ activeFunctionIndicateDirection: 'CRASH_BLINKEN' }), null);
 assert.strictEqual(indicator({ controlIndicateDirection: 0 }), 'off');
+const track = { title: 'Și dacă', artist: 'Țapinarii' };
+const metadata = { currentItemMetadata: [
+    { key: 'TITLE', value: { stringValue: track.title } },
+    { key: 'ARTIST', value: { stringValue: track.artist } },
+] };
+assert.deepStrictEqual(decodeTrack(metadata), track);
+assert.deepStrictEqual(decodeTrack({ value: { TITLE: track.title, ARTIST: track.artist } }), track);
+assert.strictEqual(decodeTrack([{ key: 'ALBUM', value: 'Album' }]), null);
+assert.strictEqual(isPlaying({ value: { playerState: { name: 'PLAYER_STATE_PLAY' } } }), true);
+assert.strictEqual(isPlaying('PLAYER_STATE_PAUSE'), false);
+const textCanvas = new Canvas(410, 56), textStyle = { font: 'bold', literal: true };
+const shortened = fitText(textCanvas, track.title.repeat(12), 18, 394, textStyle);
+assert.ok(shortened.endsWith('...') && textCanvas.textWidth(shortened, 18, textStyle) <= 394);
 
 const state = new HudState();
 state.setFlag('projectedGuidanceActive', true);
@@ -67,11 +82,21 @@ class Renderer extends EventEmitter {
     close() { this.closed = true; }
 }
 let clock = 1000;
+const mediaSub = { available: true, shutdown: () => Promise.resolve() };
 const service = startService({
-    signals: { watch: (iface, instance, cb) => { watches.set(iface.split('.').pop(), cb); return Promise.resolve({ shutdown: () => Promise.resolve() }); } },
+    signals: { watch: (iface, instance, cb) => {
+        const name = iface.split('.').pop();
+        watches.set(name, cb);
+        if (name === 'MediaPlayer') {
+            assert.strictEqual(instance, 'CarPlayMedia');
+            return Promise.resolve(mediaSub);
+        }
+        return Promise.resolve({ shutdown: () => Promise.resolve() });
+    } },
     settings: cfg, log: { warn: (msg) => { throw new Error(msg); } }, app: new EventEmitter(),
 }, { Canvas, conditionOf, makeClient: () => new Renderer(), now: () => clock });
-try {
+async function verifyService() {
+  try {
     watches.get('Light').StatusFunctionsIndicators({ controlIndicateDirection: 8 });
     assert.strictEqual(clients.length, 0, 'no layer before the vehicle reports drive-ready');
     watches.get('VehicleCondition').VehicleCondition({ statusConditionVehicle: 'FAHREN' });
@@ -114,5 +139,48 @@ try {
     watches.get('VehicleCondition').VehicleCondition({ statusConditionVehicle: 5 });
     watches.get('ProjectedModeGuiding').waypoints(waypoints);
     assert.strictEqual(clients.length, 1, 'parked and stale route data cannot reopen the HUD');
-} finally { service.stop(); }
-console.log('HUD România: CarPlay ETA, semnalizări, fundal și renderer verificate');
+    await Promise.resolve();
+    const player = watches.get('MediaPlayer');
+    settings.media = true;
+    player.currentItemMetadata(metadata);
+    player.playerState('PLAYER_STATE_PLAY');
+    assert.strictEqual(clients.length, 1, 'music stays off the HUD before READY');
+    watches.get('VehicleCondition').VehicleCondition({ statusConditionVehicle: 'FAHREN' });
+    const music = clients[1];
+    music.emit('ready');
+    assert.deepStrictEqual(service.view().media, track);
+    assert.strictEqual(music.specs[0].y, 322);
+    assert.strictEqual(music.specs[0].yield, 1);
+    assert.ok(music.frames[0].bytes.some((v, i) => i % 4 === 3 && i >= 27 * 410 * 4 && v > 0), 'artist is drawn below the title');
+    const frames = music.frames.length;
+    player.currentItemMetadata(metadata);
+    assert.strictEqual(music.frames.length, frames, 'repeated metadata does not resend pixels');
+    player.currentItemMetadata({ title: 'Melodie nouă', artist: track.artist });
+    assert.strictEqual(music.frames.length, frames + 1);
+    watches.get('Light').StatusFunctionsIndicators({ controlIndicateDirection: 3 });
+    assert.ok(music.dropped.includes(1), 'turn signals take precedence over music');
+    watches.get('Light').StatusFunctionsIndicators({ controlIndicateDirection: 0 });
+    assert.strictEqual(music.specs.slice(-1)[0].y, 322, 'music returns after the signal');
+    player.playerState('PLAYER_STATE_PAUSE');
+    assert.strictEqual(music.closed, true);
+    assert.strictEqual(service.view().media, null);
+    player.playerState('PLAYER_STATE_PLAY');
+    assert.strictEqual(service.view().media.title, 'Melodie nouă');
+    watches.get('CarPlayManager').projectedGuidanceActive(true);
+    watches.get('ProjectedModeGuiding').waypoints(waypoints);
+    assert.ok(service.view().eta && service.view().media, 'ETA and music can display together');
+    mediaSub.available = false;
+    cfg.changed();
+    mediaSub.available = true;
+    assert.strictEqual(service.view().media, null, 'old music is discarded after a disconnect');
+    player.currentItemMetadata(metadata);
+    player.playerState('PLAYER_STATE_PLAY');
+    settings.media = false;
+    cfg.changed();
+    assert.strictEqual(service.view().media, null, 'music can be switched off independently');
+  } finally { service.stop(); }
+}
+verifyService().then(() => console.log('HUD România: ETA, semnalizări, redare CarPlay și renderer verificate'), (error) => {
+    console.error(error);
+    process.exitCode = 1;
+});

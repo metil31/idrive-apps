@@ -1,7 +1,7 @@
 {
   "id": "hud_romania",
   "title": "HUD România",
-  "description": "Semnalizări și sosirea estimată din CarPlay pe HUD-ul BMW iDrive 7.",
+  "description": "Semnalizări, sosirea estimată și muzica din CarPlay pe HUD-ul BMW iDrive 7.",
   "version": "0.1.1",
   "language": "ro",
   "license": "MIT",
@@ -35,6 +35,12 @@
       "_optional": "Starea ghidajului CarPlay",
       "projectedGuidanceActive": "rs",
       "projectedGuidanceMetadataAvailable": "rs"
+    },
+    "de.bmw.infotainment.entertainment.mediaplayer.MediaPlayer": {
+      "_instances": "CarPlayMedia",
+      "_optional": "Titlul și artistul pentru piesa redată prin CarPlay",
+      "currentItemMetadata": "rs",
+      "playerState": "rs"
     }
   },
   "screens": [{
@@ -54,6 +60,7 @@
     { "key": "eta", "label": "Estimare sosire CarPlay", "type": "bool", "default": true },
     { "key": "position", "label": "Poziție ETA pe HUD", "type": "choice", "default": "low",
       "options": [["high", "Sus"], ["middle", "Mijloc"], ["low", "Jos"]] },
+    { "key": "media", "label": "Melodie și artist din CarPlay", "type": "bool", "default": true },
     { "key": "brightness", "label": "Luminozitate", "type": "choice", "default": "normal",
       "options": [["dim", "Redusă"], ["normal", "Normală"]] }
   ]
