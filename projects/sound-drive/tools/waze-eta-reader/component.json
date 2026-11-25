@@ -1,0 +1,20 @@
+{
+  "id": "waze-eta-reader",
+  "kind": "tool",
+  "version": "0.1.0",
+  "title": "Cititor Waze ETA",
+  "description": "Captură locală pentru testul ETA în Waze.",
+  "mguHmi": ["ID7"],
+  "uninstallable": true,
+  "files": [
+    { "path": "reader.js", "mode": "0644" },
+    { "path": "ocr.js", "mode": "0644" },
+    { "path": "eta-atlas.json", "mode": "0644" },
+    { "path": "OFL-Inter.txt", "mode": "0644" },
+    { "path": "LICENSE", "mode": "0644" }
+  ],
+  "units": [{ "name": "waze-eta-reader.service" }],
+  "enable": [{ "unit": "waze-eta-reader.service", "target": "oapcontroller.service" }],
+  "recmgr": ["waze-eta-reader"],
+  "restart": ["waze-eta-reader.service"]
+}

@@ -1,0 +1,11 @@
+Waze ETA — aplicație experimentală pentru iDrive 7.
+
+Clientul cluster-render este al lui Robert Nisipeanu, MPL-2.0.
+https://github.com/robertnisipeanu/idrive-apps
+
+CarPlay Map Mirror, de Impossible43 și isaakbruno2, este referința de
+interoperabilitate pentru captură. Implementarea cititorului este separată.
+https://github.com/Impossible43/vlad-mgu-apps
+https://github.com/isaakbruno2/carplay-map-cluster
+
+Cititorul include un atlas de analiză bazat pe Inter, SIL OFL 1.1.

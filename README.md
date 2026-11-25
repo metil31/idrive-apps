@@ -1,6 +1,6 @@
 # Aplicații iDrive 7 România
 
-O singură sursă MGU Store pentru **Sound Drive în română**, **Speed Limit România**, **HUD România**, **Media HUD România** și **Scaune calde**. Sound Drive Audio apare ca dependență pentru Sound Drive. Aplicațiile se aleg și se instalează separat din aceeași listă.
+O singură sursă MGU Store pentru **Sound Drive în română**, **Speed Limit România**, **HUD România**, **Media HUD România**, **Scaune calde** și testul **Waze ETA**. Sound Drive Audio apare ca dependență pentru Sound Drive. Aplicațiile se aleg și se instalează separat din aceeași listă.
 
 În MGU Store, adaugă `metil31/idrive-apps` și selectează ramura `mgu-romania`. Pentru afișarea limitei pe HUD și în instrumentar, Speed Limit România folosește `cluster-render` din [robertnisipeanu/idrive-apps](https://github.com/robertnisipeanu/idrive-apps).
 
@@ -39,6 +39,14 @@ Aplicație separată pentru iDrive 7, cu setările direct pe prima pagină. Sele
 Aplicația încearcă o singură activare per scaun după trecerea mașinii din starea oprită în READY, cât timp staționezi și temperatura este strict sub prag. Comanda are o durată de trei minute. Dacă oprești încălzirea manual, aplicația nu o pornește din nou în același ciclu.
 
 Versiune experimentală pentru mașini cu traseu de încălzire frontală prin BDC_G05. Pentru fiecare scaun, aplicația verifică starea și repetă verificarea modulului separat la cel puțin 20 de secunde distanță înainte să trimită comanda. Dacă mașina nu confirmă un traseu compatibil, aplicația afișează rezultatul în meniu și lasă scaunul așa cum este. Verificată în simulare. [Referință Heating Comfort](https://github.com/NamelsMissing/mgu-apps/tree/main/apps/g21_wheelheat).
+
+## Waze ETA
+
+Aplicație separată, experimentală. Cu mașina staționată, deschide **Waze ETA**, pornește testul și revino în Waze cu un traseu activ. Cititorul primește captura ecranului central numai când iDrive anunță că interfața CarPlay este în prim-plan. Recunoașterea are nevoie de două capturi consecutive pentru a confirma o valoare nouă. Versiunea de test a fost verificată pe capturi furnizate de utilizator, cu interfața Waze în engleză.
+
+Aplicația afișează starea și valorile în meniu. Dacă activezi **Arată ETA pe HUD**, apare un card reglabil cu ora sosirii, timpul și distanța rămase. La schimbarea ecranului, ultima valoare este marcată **MEMORAT** și expiră după două minute de la ultima citire validă. Testul se oprește după 30 de minute sau imediat de la comanda **Oprește testul**. Serviciul folosește imagini temporare în memorie. Cardul nu ocupă zona hărții din ceasuri.
+
+Citirea pe un iDrive real și vizibilitatea pe HUD trebuie confirmate pe mașină. [Referință pentru captura locală](https://github.com/Impossible43/vlad-mgu-apps).
 
 ## Surse și licențe
 
