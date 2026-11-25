@@ -12,6 +12,8 @@ Semnalizările și avariile, plus ora sosirii, timpul și distanța rămase dac�
 
 Necesită `cluster-render`. ETA pe Waze cu iPhone depinde de datele de traseu primite de la unitatea BMW. Pagina aplicației arată starea ghidajului, a metadatelor, a furnizorului CarPlay și numărul de destinații primite. [Credite și licențe](projects/sound-drive/apps/hud_romania/NOTICE).
 
+În versiunea 0.1.3, butonul **Test Waze** verifică dacă aplicația poate citi ecranul central. Cu mașina staționată, pornește testul, revino în Waze și lasă ecranul deschis timp de 20 de secunde, apoi redeschide HUD România. Rezultatul indică dimensiunea cadrului și dacă în zonele așteptate apar indicii vizuale pentru ETA și viraj. Cadrul temporar este șters după test.
+
 ## Media HUD România
 
 Aplicație separată pentru melodia și artistul din CarPlay. În Setări poți muta textul pe orizontală și verticală. Implicit apare sub poziția de jos a ETA. Se ascunde la pauză sau când se deconectează sursa CarPlay. Pentru a trece de la afișarea integrată în HUD România 0.1.1 la aplicația separată, actualizează mai întâi HUD România la 0.1.2. [Credite și licențe](projects/sound-drive/apps/media_hud_ro/NOTICE).
