@@ -102,6 +102,7 @@ class HudState {
         this.metadata = null;
         this.provider = null;
         this.waypointCount = null;
+        this.hasEtaValues = false;
         this.route = null;
         this.routeAt = null;
         this.signal = 'off';
@@ -114,6 +115,7 @@ class HudState {
             this.route = null;
             this.routeAt = null;
             this.waypointCount = null;
+            this.hasEtaValues = false;
             this.signal = 'off';
         }
         this.awake = ready;
@@ -129,6 +131,7 @@ class HudState {
             if (this.metadata === true && !value) this.route = null;
             this.metadata = value;
         }
+        if (!this.carplayRoute()) this.route = null;
     }
 
     setProvider(v) {
@@ -138,18 +141,22 @@ class HudState {
         const isCarPlay = value === 'CAR_PLAY' || value === '1' || value === 1;
         if (this.provider === true && !isCarPlay) this.route = null;
         this.provider = isCarPlay;
+        if (!this.carplayRoute()) this.route = null;
     }
 
     setWaypoints(v, now) {
         const route = waypointList(v);
         this.waypointCount = Array.isArray(route) ? route.length : null;
-        this.route = this.active === false ? null : decodeWaypoints(route);
+        const estimate = decodeWaypoints(route);
+        this.hasEtaValues = !!estimate;
+        this.route = this.carplayRoute() ? estimate : null;
         this.routeAt = now;
     }
 
     carplayRoute() {
-        return this.active === true || (this.active === null && (this.provider === true ||
-            (this.provider === null && this.metadata === true)));
+        if (this.active === false) return false;
+        if (this.provider === true) return true;
+        return this.metadata === true && (this.active === true || this.provider === null);
     }
 
     etaStatus(now) {
@@ -157,8 +164,9 @@ class HudState {
         if (this.routeAt === null) return 'Așteaptă date de traseu CarPlay';
         if (this.waypointCount === 0) return 'CarPlay a trimis o listă de destinații goală';
         if (this.waypointCount === null) return 'Format de traseu CarPlay nerecunoscut';
+        if (!this.hasEtaValues) return 'CarPlay nu a trimis valori pentru ETA';
         if (!this.carplayRoute()) return 'Sursa traseului CarPlay nu este confirmată';
-        if (!this.route) return 'CarPlay nu a trimis valori pentru ETA';
+        if (!this.route) return 'Așteaptă o estimare nouă pentru traseul activ';
         if (!fresh(now, this.routeAt, ETA_MS)) return 'Datele de traseu nu mai sunt actuale';
         return '';
     }

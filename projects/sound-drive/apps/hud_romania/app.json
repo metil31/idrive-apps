@@ -2,7 +2,7 @@
   "id": "hud_romania",
   "title": "HUD România",
   "description": "Semnalizări și sosirea estimată din CarPlay pe HUD-ul BMW iDrive 7.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "language": "ro",
   "license": "MIT",
   "vendor": "custom",
@@ -23,7 +23,7 @@
     "de.bmw.infotainment.navigation.projectedmodeguiding.ProjectedModeGuiding": {
       "_instances": "Main_Instance",
       "_optional": "Estimările de sosire furnizate de CarPlay",
-      "waypoints": "rs"
+      "waypoints": "s"
     },
     "de.bmw.infotainment.navigation.guiding.Guidance": {
       "_instances": "Main_Instance",
