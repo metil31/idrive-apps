@@ -4,6 +4,7 @@ const assert = require('assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { Canvas } = require('../runtime/canvas');
 const { captureFrame, captureTest } = require('../../apps/hud_romania/waze-capture');
 
 async function verify() {
@@ -28,11 +29,31 @@ async function verify() {
         assert.deepStrictEqual(result.matches.dashboard, { eta: true, turn: true });
         assert.deepStrictEqual(result.matches.full, { eta: false, turn: false });
         assert.deepStrictEqual(fs.readdirSync(dir), [], 'screen pixels are removed after the test');
-        const failure = Object.assign(new Error('permission denied'), { code: 'EACCES' });
-        try {
-            await captureFrame(dir, (file, args, opts, done) => done(failure));
-            assert.fail('capture errors must be returned to the app');
-        } catch (e) { assert.strictEqual(e, failure); }
+        assert.strictEqual(result.method, 'RAW');
+        const png = new Canvas(1280, 480);
+        png.d.set(testFrame);
+        const fallback = await captureFrame(dir, (file, args, opts, done) => {
+            if (file === 'winston-grabber') {
+                done(Object.assign(new Error('failed'), { code: 1 }), '', 'permission denied');
+                return;
+            }
+            assert.strictEqual(file, 'ivi-screenshot-control');
+            assert.deepStrictEqual(args.slice(0, -1), ['--screenshot', 'center', '-f']);
+            fs.writeFileSync(args[args.length - 1], png.png());
+            done(null);
+        });
+        assert.strictEqual(fallback.method, 'PNG');
+        assert.deepStrictEqual(fallback.matches, result.matches);
+        const errors = await captureFrame(dir, (file, args, opts, done) => {
+            if (file === 'winston-grabber') done(Object.assign(new Error('failed'), { code: 1 }), '', 'permission denied');
+            else done(Object.assign(new Error('failed'), { code: 1 }), '', 'Wayland socket unavailable');
+        });
+        assert.deepStrictEqual(errors.errors, ['RAW: acces refuzat', 'PNG: ecran indisponibil']);
+        const invalid = await captureFrame(dir, (file, args, opts, done) => {
+            fs.writeFileSync(args[args.length - 1], Buffer.alloc(10));
+            done(null);
+        });
+        assert.deepStrictEqual(invalid.errors, ['RAW: format necunoscut', 'PNG: format necunoscut']);
         assert.deepStrictEqual(fs.readdirSync(dir), []);
         let time = 0, pending, captured = 0;
         const clock = { now: () => time, setTimeout: (fn) => { pending = fn; return 1; }, clearTimeout: () => { pending = null; } };
@@ -45,7 +66,7 @@ async function verify() {
         pending();
         await new Promise((resolve) => setImmediate(resolve));
         assert.strictEqual(captured, 1);
-        assert.match(ctl.status(), /Compact: ETA și viraj/);
+        assert.match(ctl.status(), /Captură RAW.*Compact: ETA și viraj/);
         ctl.start();
         ctl.stop();
         assert.strictEqual(pending, null);
