@@ -131,6 +131,7 @@ class ClusterRender extends EventEmitter {
             } else this.emit('status', text);
         } else if (m.ev === 'layer') this.emit('layer', m);
         else if (m.ev === 'target') this.emit('target', m);
+        else if (m.ev === 'host') this.emit('host', m);
         else if (m.ev === 'budget') this.emit('budget', m);
         else if (m.ev === 'error') this.emit('refused', m);
     }

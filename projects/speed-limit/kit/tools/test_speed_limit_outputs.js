@@ -108,6 +108,18 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
     const mref = map[0] && map[0].ref;
     check(ops('set').some((m) => m.ref === mref && m.visible === 0), 'map layer hidden when the phone map goes (its own layer does not count)');
 
+    statusText = 'layer 9 effect of custom_theme on panel, content z 1: shown\nlayer 12 video of phone_map on panel, content z 2: shown\n';
+    send(client, { ev: 'host', target: 'map', into: 'panel', shown: 1 });
+    await wait(30);
+    out.tick(Date.now());
+    await wait(100);
+    check(out.diag().mapHost === 'panel' && out.diag().panelBy.includes('custom_theme') && !out.diag().mapBusy,
+        'third-party panel and hosted map are reported independently of the standard map');
+    check(!ops('layer').some((m) => m.target === 'panel'), 'diagnostics never draw over the theme');
+    send(client, { ev: 'host', target: 'map', into: '', shown: 0 });
+    await wait(30);
+    check(out.diag().mapHost === '', 'when the host goes away, the old host is forgotten');
+
     // no limit: the HUD layer is hidden too
     out.update(null, Date.now());
     await wait(100);

@@ -44,6 +44,8 @@ class Outputs {
         this.layers = {};           // hud | map -> { ref, size, x, y, key, visible, yld }
         this.mapBusy = false;       // another app shows a picture on the map target
         this.mapBusyBy = '';
+        this.mapHost = '';
+        this.panelBy = [];
         this.lastStatus = 0;
         this.statusAt = 0;
         this.targets = {};          // target -> { state, holder, reason }
@@ -56,8 +58,21 @@ class Outputs {
         if (this.cr) return this;
         const cr = this.cr = new ClusterRender(this.appId, this.log, this.crOpts).start();
         cr.on('ready', () => { this.layers = {}; this._apply(Date.now()); });
-        cr.on('down', () => { this.layers = {}; });
+        cr.on('down', () => {
+            this.layers = {};
+            this.mapBusy = false;
+            this.mapBusyBy = '';
+            this.mapHost = '';
+            this.panelBy = [];
+            this.lastStatus = 0;
+            this.statusAt = 0;
+        });
         cr.on('status', (text) => this._status(text));
+        cr.on('host', (m) => {
+            if (m.target !== 'map') return;
+            this.mapHost = m.shown === 1 && /^[a-z0-9_]{1,32}$/.test(m.into || '') ? m.into : '';
+            this.lastStatus = 0;
+        });
         cr.on('target', (m) => {
             const was = this.targets[m.target];
             this.targets[m.target] = { state: m.state, holder: m.holder || '', reason: m.reason || '' };
@@ -75,6 +90,11 @@ class Outputs {
         Object.keys(this.layers).forEach((k) => { try { cr.drop(this.layers[k].ref); } catch (e) { /* gone */ } });
         this.layers = {};
         this.mapBusy = false;
+        this.mapBusyBy = '';
+        this.mapHost = '';
+        this.panelBy = [];
+        this.lastStatus = 0;
+        this.statusAt = 0;
         try { cr.close(); } catch (e) { /* gone */ }
     }
 
@@ -132,31 +152,40 @@ class Outputs {
         });
     }
 
-    /** Now and then: ask cluster-render who draws on the map target (only while there is a limit to show, or the sign
-     * is on the map: nothing to ask otherwise). */
+    /** Ask for the visible layers while cluster display is selected, even without a known limit. */
     tick(now) {
-        if (!this.view && !this.mapBusy) return;
         const cr = this.cr;
         const show = this.settings.get('show');
         if (!cr || !cr.ready || (show !== 'cluster' && show !== 'both')) return;
         if (now - this.lastStatus < (this.mapBusy ? STATUS_MS : STATUS_IDLE_MS)) return;
         this.lastStatus = now;
         cr.status();
-        // no answer for two rounds: assume the map is not shown (never hold the cluster's centre on a guess)
-        if (this.mapBusy && now - this.statusAt > 2 * STATUS_MS + 1000) { this.mapBusy = false; this._apply(now); }
+        // Retire the last reported layers if the renderer stops answering.
+        if (this.statusAt && now - this.statusAt > 2 * (this.mapBusy ? STATUS_MS : STATUS_IDLE_MS) + 1000) {
+            this.mapBusy = false;
+            this.mapBusyBy = '';
+            this.panelBy = [];
+            this.statusAt = 0;
+            this._apply(now);
+        }
     }
 
     _status(text) {
         this.statusAt = Date.now();
         let busy = false, by = '';
+        const panel = new Set();
         String(text || '').split('\n').forEach((line) => {
             const m = LAYER_RX.exec(line.trim());
-            if (!m || m[2] === this.appId || m[3] !== 'map') return;
-            if (m[5] === 'shown' && m[1] !== 'effect' && m[1] !== 'mesh') { busy = true; by = m[2]; }
+            if (!m || m[2] === this.appId || m[5] !== 'shown') return;
+            if (m[3] === 'panel' && panel.size < 4) {
+                panel.add(m[2].replace(/[^\w.-]/g, '_').slice(0, 48));
+            }
+            if (m[3] === 'map' && m[1] !== 'effect' && m[1] !== 'mesh') { busy = true; by = m[2]; }
         });
         if (busy !== this.mapBusy) this.log.info('cluster map ' + (busy ? 'shown by ' + by : 'not shown') + ': the sign ' + (busy ? 'joins it' : 'leaves it'));
         this.mapBusy = busy;
         this.mapBusyBy = by;
+        this.panelBy = Array.from(panel);
         this._apply(Date.now());
     }
 
@@ -165,7 +194,8 @@ class Outputs {
         const st = (t) => (L[t] ? (L[t].visible ? this.layerStates[L[t].ref] || 'sent' : 'hidden') : 'none');
         return {
             connected: !!(cr && cr.ready), unsupported: cr ? cr.unsupported : '', targetsOffered: cr ? cr.targets : '',
-            hud: st('hud'), map: st('map'), cluster: st('map'), mapBusy: this.mapBusy, mapBusyBy: this.mapBusyBy, targets: this.targets, refused: this.refused,
+            hud: st('hud'), map: st('map'), cluster: st('map'), mapBusy: this.mapBusy, mapBusyBy: this.mapBusyBy,
+            mapHost: this.mapHost, panelBy: this.panelBy, statusAt: this.statusAt, targets: this.targets, refused: this.refused,
         };
     }
 }

@@ -333,6 +333,18 @@ function room(P, s) {
     return { x0: z / 2 - T.cx, x1: T.w - T.cx - z / 2, y0: z / 2 - T.cy, y1: T.h - T.cy - z / 2 };
 }
 
+function clusterRoute(e) {
+    const o = e.outputs.diag();
+    const show = e.settings.get('show');
+    if (show !== 'cluster' && show !== 'both') return 'Bord: afisare dezactivata';
+    if (!o.connected) return 'Bord: renderer deconectat';
+    if (o.mapHost) return 'Bord: harta mutata in ' + o.mapHost;
+    if (!o.statusAt) return 'Bord: se asteapta starea rendererului';
+    if (o.panelBy.length && o.mapBusy) return 'Bord: harta si panou separat (' + o.panelBy[0] + ')';
+    if (o.panelBy.length) return 'Bord: panou fara harta separata (' + o.panelBy[0] + ')';
+    return o.mapBusy ? 'Bord: harta in zona standard' : 'Bord: fara harta vizibila in renderer';
+}
+
 function posText(x, y) {
     if (!x && !y) return 'Position: Default';
     const h = x > 0 ? x + ' px right' : x < 0 ? -x + ' px left' : '', v = y > 0 ? y + ' px down' : y < 0 ? -y + ' px up' : '';
@@ -414,6 +426,8 @@ mgu.run({
             once('clear', ct, () => ui.text('SL_FIX_CLEAR', ct));
             once('log', s.get('driveLog') !== false, () => ui.checked('SL_LOG', s.get('driveLog') !== false));
             renderPlace('cluster');
+            const route = clusterRoute(engine);
+            once('clusterRoute', route, () => ui.text('SL_CL_ROUTE', route));
             renderPlace('hud');
         }
 
