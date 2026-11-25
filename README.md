@@ -1,6 +1,6 @@
 # Aplicații iDrive 7 România
 
-O singură sursă MGU Store pentru **Sound Drive în română**, **Speed Limit România**, **HUD România** și **Media HUD România**. Sound Drive Audio apare ca dependență pentru Sound Drive. Aplicațiile se aleg și se instalează separat din aceeași listă.
+O singură sursă MGU Store pentru **Sound Drive în română**, **Speed Limit România**, **HUD România**, **Media HUD România** și **Scaune calde**. Sound Drive Audio apare ca dependență pentru Sound Drive. Aplicațiile se aleg și se instalează separat din aceeași listă.
 
 În MGU Store, adaugă `metil31/idrive-apps` și selectează ramura `mgu-romania`. Pentru afișarea limitei pe HUD și în instrumentar, Speed Limit România folosește `cluster-render` din [robertnisipeanu/idrive-apps](https://github.com/robertnisipeanu/idrive-apps).
 
@@ -31,6 +31,14 @@ Textul lung este scurtat cu puncte de suspensie. La mărimea maximă, grupul cu 
 În secțiunea pentru bord, rândul „Bord” arată ce raportează `cluster-render` despre harta telefonului și un eventual panou de temă. Rândul este activ cu afișarea setată pe bord sau pe ambele ecrane.
 
 Din versiunea 1.1.5, semnul urmează harta Maps on cluster când o temă o găzduiește în panoul de bord. Dimensiunea și poziția configurate pentru bord se adaptează la dreptunghiul hărții, iar semnul dispare când fluxul hărții se oprește.
+
+## Scaune calde
+
+Aplicație separată pentru iDrive 7, cu setările direct pe prima pagină. Selectează scaunele din față, treapta și pragul exterior. Valori inițiale: 8 °C, treapta 2 și ambele scaune. Pornirea automată se activează din meniu.
+
+Aplicația încearcă o singură activare per scaun după trecerea mașinii din starea oprită în READY, cât timp staționezi și temperatura este strict sub prag. Comanda are o durată de trei minute. Dacă oprești încălzirea manual, aplicația nu o pornește din nou în același ciclu.
+
+Versiune experimentală pentru mașini cu traseu de încălzire frontală prin BDC_G05. Pentru fiecare scaun, aplicația verifică starea și repetă verificarea modulului separat la cel puțin 20 de secunde distanță înainte să trimită comanda. Dacă mașina nu confirmă un traseu compatibil, aplicația afișează rezultatul în meniu și lasă scaunul așa cum este. Verificată în simulare. [Referință Heating Comfort](https://github.com/NamelsMissing/mgu-apps/tree/main/apps/g21_wheelheat).
 
 ## Surse și licențe
 

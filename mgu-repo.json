@@ -68,6 +68,28 @@
       }
     },
     {
+      "id": "scaune_calde_ro",
+      "kind": "app",
+      "path": "projects/sound-drive/apps/scaune_calde_ro",
+      "mguHmi": ["ID7"],
+      "build": {
+        "python": "projects/sound-drive/kit/tools/build.py",
+        "args": ["{id}"],
+        "sdk": "projects/sound-drive/oap-sdk",
+        "output": "projects/sound-drive/dist/{id}@{version}.tgz",
+        "shared": [
+          "projects/sound-drive/LICENSE",
+          "projects/sound-drive/kit/runtime",
+          "projects/sound-drive/kit/platform",
+          "projects/sound-drive/kit/localization",
+          "projects/sound-drive/kit/tools/pack_data.py",
+          "projects/sound-drive/kit/tools/localize.py",
+          "projects/sound-drive/kit/tools/locale-revisions.json",
+          "projects/sound-drive/kit/tools/oapgen"
+        ]
+      }
+    },
+    {
       "id": "speed_limit",
       "kind": "app",
       "path": "projects/speed-limit/apps/speed_limit",

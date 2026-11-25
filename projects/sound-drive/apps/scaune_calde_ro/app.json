@@ -1,0 +1,48 @@
+{
+  "id": "scaune_calde_ro",
+  "title": "Scaune calde",
+  "description": "Încălzirea scaunelor din față, o singură dată la pornire, sub pragul exterior ales.",
+  "version": "0.1.0",
+  "language": "ro",
+  "license": "MIT",
+  "vendor": "custom",
+  "loggingId": "SCHT",
+  "mguHmi": ["ID7"],
+  "autostart": true,
+  "signals": {
+    "de.bmw.infrastructure.VehicleCondition": { "VehicleCondition": "s" },
+    "de.bmw.infrastructure.EnvironmentalInformation": { "ExteriorTemperature": "s" },
+    "de.bmw.infotainment.vehicle.Vehicle2": { "statusCarSpeed2": "rs" },
+    "com.harman.infotainment.systemfunctions.tasu.tasu.InternalTasu": {
+      "_instances": "SystemFunctionsInternalTasuInst1",
+      "_methods": ["sendTasuRequest"],
+      "_broadcasts": ["sendTasuResponse"]
+    }
+  },
+  "screens": [{
+    "name": "MAIN",
+    "kind": "menu",
+    "title": "Scaune calde",
+    "settings": true,
+    "items": [
+      ["header", "SC_SETTINGS", "Încălzire la pornire"],
+      ["checkbox", "SC_AUTO", "Pornește automat"],
+      ["slider", "SC_THRESHOLD", "Prag exterior", 20],
+      ["checkbox", "SC_DRIVER", "Scaun șofer"],
+      ["checkbox", "SC_PASSENGER", "Scaun pasager"],
+      ["dropdown", "SC_LEVEL", "Treaptă", ["Treapta 1", "Treapta 2", "Treapta 3"]],
+      ["header", "SC_INFO", "Stare"],
+      ["text", "SC_TEMP", "Temperatura exterioară"],
+      ["text", "SC_RESULT", "Rezultat"],
+      ["text", "SC_LIVE_DRIVER", "Șofer"],
+      ["text", "SC_LIVE_PASSENGER", "Pasager"]
+    ]
+  }],
+  "settings": [
+    { "key": "auto", "label": "Pornește automat", "type": "bool", "default": false, "hidden": true },
+    { "key": "threshold", "label": "Prag exterior", "type": "number", "default": 8, "hidden": true },
+    { "key": "driver", "label": "Scaun șofer", "type": "bool", "default": true, "hidden": true },
+    { "key": "passenger", "label": "Scaun pasager", "type": "bool", "default": true, "hidden": true },
+    { "key": "level", "label": "Treaptă", "type": "number", "default": 2, "hidden": true }
+  ]
+}
