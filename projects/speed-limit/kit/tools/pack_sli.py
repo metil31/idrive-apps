@@ -429,12 +429,14 @@ def apply_local_limits(roads, groups, log):
     pending = {}
     for group in groups:
         previous, limit = group['previous'], group['limit']
-        if not 5 <= limit < previous <= 250 or not group['source'].startswith('https://'):
+        previous_text = str(previous)
+        value, src = parse_limit(previous_text, 'ro')
+        if src not in (SRC_NUM, SRC_ZONE) or not 5 <= limit < value <= 250 or not group['source'].startswith('https://'):
             raise ValueError('invalid local limit or evidence for ' + group['street'])
         for wid, first, last in group['ways']:
             if wid in pending:
                 raise ValueError('duplicate local limit for OSM way %d' % wid)
-            pending[wid] = (group['street'], first, last, previous, limit)
+            pending[wid] = (group['street'], first, last, previous_text, limit)
 
     applied = 0
     for i, (wid, refs, tags, cls) in enumerate(roads):
@@ -443,7 +445,7 @@ def apply_local_limits(roads, groups, log):
             continue
         street, first, last, previous, limit = rule
         if (tags.get('name') != street or (refs[0], refs[-1]) not in ((first, last), (last, first))
-                or tags.get('maxspeed') != str(previous) or any(k.startswith('maxspeed:') for k in tags)):
+                or tags.get('maxspeed') != previous or any(k.startswith('maxspeed:') for k in tags)):
             log('  local limit skipped for way %d: review current geometry or tags' % wid)
             continue
         roads[i] = (wid, refs, dict(tags, maxspeed=str(limit)), cls)

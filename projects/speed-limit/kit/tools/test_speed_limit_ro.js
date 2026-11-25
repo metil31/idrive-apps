@@ -99,6 +99,12 @@ at('Cluj-Napoca, Calea Moților sample', 46.7700, 23.5900, 0, 50);
 at('Otopeni living-street sample', 44.5470, 26.0720, 0, 30);
 at('Calea Victoriei, northern section', 44.4466283, 26.0902792, 155, 30, 4865914);
 at('Calea Victoriei, southern section', 44.4312338, 26.0968527, 189, 30, 231242706);
+for (const [way, lat, lon] of [[23050183, 44.4371, 26.1255], [218259739, 44.4378, 26.12535]]) {
+    const xy = merc(lat, lon);
+    const pieces = pack.near(xy[0], xy[1], 120).map(id => pack.piece(id)).filter(p => p.way === way);
+    check(pieces.length > 0 && pieces.every(p => p.limF === 30 && (p.src & 3) === SRC.NUM),
+        'Strada Rondă: confirmed 30 km/h replaces the implicit urban limit on OSM way ' + way);
+}
 at('Corbeanca, existing 30 km/h section on Strada Cantonului', 44.5869402, 26.0309329, 342, 30, 27930712);
 
 const demo = new DemoDrive(pack);

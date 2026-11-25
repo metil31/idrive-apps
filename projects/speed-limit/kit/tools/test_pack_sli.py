@@ -81,6 +81,12 @@ for refs, tags, want in [
           (want, '30' if want else tags['maxspeed'], tags['maxspeed']),
           'sourced correction respects geometry, existing tags and neighbouring ways: %r %r' % (refs, tags))
 
+urban_rule = [dict(local[0], previous='RO:urban')]
+for value, want in [('RO:urban', 1), ('50', 0), ('RO:rural', 0)]:
+    roads = [(101, [11, 12], {'name': 'Calea Victoriei', 'maxspeed': value}, 3)]
+    check((P.apply_local_limits(roads, urban_rule, lambda _: None), roads[0][2]['maxspeed']),
+          (want, '30' if want else value), 'sourced correction checks the exact implicit zone tag: ' + value)
+
 # one-way
 check(P.oneway_of({'oneway': 'yes'}, 3), (1, False), 'oneway=yes')
 check(P.oneway_of({'oneway': '-1'}, 3), (-1, False), 'oneway=-1')

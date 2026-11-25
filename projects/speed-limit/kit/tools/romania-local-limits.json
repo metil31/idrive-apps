@@ -19,5 +19,15 @@
       [668989983, 1883108500, 31403556],
       [1165343128, 255063746, 166358492]
     ]
+  },
+  {
+    "street": "Strada Rondă",
+    "previous": "RO:urban",
+    "limit": 30,
+    "source": "https://adp2.ro/wp-content/uploads/Informare-sensuri-unice-cvartal-4.pdf",
+    "ways": [
+      [23050183, 248730512, 248730511],
+      [218259739, 248730511, 256206154]
+    ]
   }
 ]

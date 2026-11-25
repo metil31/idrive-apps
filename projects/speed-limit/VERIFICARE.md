@@ -30,4 +30,6 @@ Verificarea automată a extrasului a găsit 988.033 de bucăți de drum. Toate c
 
 Pachetul se generează cu `kit/tools/pack_sli.py`, folosind `--local-limits kit/tools/romania-local-limits.json`. Din același extras, `kit/tools/pack_junctions.py` generează `apps/speed_limit/junctions-data.js` și primește pachetul compilat prin `--speed-pack`. Verificările automate sunt în `kit/tools/test_pack_sli.py`, `kit/tools/test_speed_limit_ro.js`, `kit/tools/test_speed_limit_outputs.js` și `kit/tools/test_speed_limit_power.js`.
 
+În 1.1.7, am comparat tronsoanele numite de ADP Sector 2 cu geometria extrasului. Pe Strada Rondă, între intersecțiile cu Țepeș Vodă și Matei Voievod, două dintre cele patru segmente aveau încă limita urbană implicită de 50 km/h. Cele două corecții verifică numele, capetele segmentului și eticheta anterioară `RO:urban` la fiecare regenerare a pachetului. [Informarea ADP Sector 2](https://adp2.ro/wp-content/uploads/Informare-sensuri-unice-cvartal-4.pdf)
+
 Antetul extrasului indică `2026-11-24T21:21:23Z`. SHA-256 al fișierului PBF folosit este `01de6ef16ecb2cdb87fa80843f6c76a5e186ddb9b70628acb4e3fa1c9e917cbb`.
