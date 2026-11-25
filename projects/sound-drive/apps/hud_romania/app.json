@@ -2,7 +2,7 @@
   "id": "hud_romania",
   "title": "HUD România",
   "description": "Semnalizări și sosirea estimată din CarPlay pe HUD-ul BMW iDrive 7.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "language": "ro",
   "license": "MIT",
   "vendor": "custom",
@@ -41,7 +41,7 @@
     "name": "MAIN",
     "kind": "canvas",
     "title": "HUD România",
-    "buttons": [["BTN_SETTINGS", "Setări"], ["BTN_WAZE_TEST", "Test Waze"]]
+    "buttons": [["BTN_SETTINGS", "Setări"]]
   }],
   "settings": [
     { "key": "indicators", "label": "Semnalizări și avarii", "type": "bool", "default": true },

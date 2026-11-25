@@ -3,23 +3,28 @@
 const { MAP, hostArea, mapDisplays } = require('./map-area');
 const { AlbumArt } = require('./album-art');
 
-const WIDTH = 410, HEIGHT = 56;
+const HUD_WIDTH = 200, CLUSTER_WIDTH = 410, HEIGHT = 56;
 const HUD = { x: 0, y: 0, w: 800, h: 480 };
 const TITLE = { align: 'center', font: 'bold', literal: true };
 const ARTIST = { align: 'center', font: 'label', literal: true };
 const TITLE_LEFT = { font: 'bold', literal: true };
 const ARTIST_LEFT = { font: 'label', literal: true };
 
-function drawTrack(cv, track, cover) {
+function drawTrack(cv, track, cover, pill = false) {
     const titleStyle = cover ? TITLE_LEFT : TITLE, artistStyle = cover ? ARTIST_LEFT : ARTIST;
-    const width = WIDTH - (cover ? 70 : 16);
+    const width = cv.w - (pill ? (cover ? 94 : 40) : (cover ? 70 : 16));
     const title = fitText(cv, track.title, 18, width, titleStyle);
     const artist = track.artist ? fitText(cv, track.artist, 15, width, artistStyle) : '';
-    let x = WIDTH / 2;
+    const textWidth = Math.max(cv.textWidth(title, 18, titleStyle), cv.textWidth(artist, 15, artistStyle));
+    const coverWidth = cover ? 54 : 0;
+    if (pill) {
+        const pillWidth = Math.ceil(textWidth + coverWidth + 40);
+        cv.roundRect((cv.w - pillWidth) / 2, 3, pillWidth, 50, 25, [23, 25, 29, 208]);
+    }
+    let x = cv.w / 2;
     if (cover) {
         const side = 44, gap = 10;
-        const textWidth = Math.max(cv.textWidth(title, 18, titleStyle), cv.textWidth(artist, 15, artistStyle));
-        const imageX = Math.round((WIDTH - side - gap - textWidth) / 2);
+        const imageX = Math.round((cv.w - coverWidth - textWidth) / 2);
         cv.drawImage(cover.data, cover.width, cover.height, imageX, 6, side, side);
         x = imageX + side + gap;
     }
@@ -44,9 +49,9 @@ function bounded(value, fallback, min, max) {
     return Number.isFinite(value) ? Math.round(Math.max(min, Math.min(max, value))) : fallback;
 }
 
-function place(area, cx, cy, scale) {
-    scale = Math.min(scale, area.w / WIDTH, area.h / HEIGHT);
-    const w = Math.round(WIDTH * scale), h = Math.round(HEIGHT * scale);
+function place(area, cx, cy, scale, textureWidth) {
+    scale = Math.min(scale, area.w / textureWidth, area.h / HEIGHT);
+    const w = Math.round(textureWidth * scale), h = Math.round(HEIGHT * scale);
     if (h < 16) return null;
     return {
         x: Math.max(area.x, Math.min(area.x + area.w - w, Math.round(cx - w / 2))),
@@ -110,7 +115,7 @@ class MediaOutput {
         const show = selected === 'cluster' || selected === 'both' ? selected : 'hud';
         const hud = show !== 'cluster' && place(HUD,
             400 + bounded(settings.get('positionX'), 0, -180, 180),
-            bounded(settings.get('positionY'), 350, 110, 440), bounded(settings.get('hudSize'), 100, 60, 150) / 100);
+            bounded(settings.get('positionY'), 350, 110, 440), bounded(settings.get('hudSize'), 100, 60, 150) / 100, HUD_WIDTH);
         this.sync('hud', 'hud', hud, track, cover);
         if (show === 'hud') { this.drop('cluster'); return; }
 
@@ -132,10 +137,11 @@ class MediaOutput {
             cy = area.y + (cy - area.sy) * vertical;
             scale *= Math.min(horizontal, vertical);
         }
-        this.sync('cluster', target, place(area, cx, cy, scale), track, cover);
+        this.sync('cluster', target, place(area, cx, cy, scale, CLUSTER_WIDTH), track, cover);
     }
 
     sync(name, target, rect, track, cover) {
+        const textureWidth = name === 'hud' ? HUD_WIDTH : CLUSTER_WIDTH;
         let layer = this.layers[name];
         if (!rect || layer && layer.target !== target) {
             this.drop(name);
@@ -144,7 +150,7 @@ class MediaOutput {
         if (!rect) return;
         if (!layer) {
             const ref = this.client.image(Object.assign({ target, klass: 'overlay', z: 11,
-                iw: WIDTH, ih: HEIGHT, fps: 4, contend: 0, yield: 1 }, rect));
+                iw: textureWidth, ih: HEIGHT, fps: 4, contend: 0, yield: 1 }, rect));
             if (!ref) return;
             layer = this.layers[name] = { ref, target, rect, key: '' };
         } else if (Object.keys(rect).some((key) => rect[key] !== layer.rect[key])) {
@@ -153,13 +159,10 @@ class MediaOutput {
         }
         const key = JSON.stringify([track.title, track.artist, cover ? track.cover : null]);
         if (layer.key === key) return;
-        if (this.key !== key) {
-            const cv = new this.Canvas(WIDTH, HEIGHT).clear();
-            drawTrack(cv, track, cover);
-            this.bytes = Buffer.from(cv.d.buffer, cv.d.byteOffset, cv.d.byteLength);
-            this.key = key;
-        }
-        if (this.client.pixels(layer.ref, null, this.bytes)) layer.key = key;
+        const cv = new this.Canvas(textureWidth, HEIGHT).clear();
+        drawTrack(cv, track, cover, name === 'cluster');
+        const bytes = Buffer.from(cv.d.buffer, cv.d.byteOffset, cv.d.byteLength);
+        if (this.client.pixels(layer.ref, null, bytes)) layer.key = key;
     }
 
     drop(name) {
@@ -179,8 +182,6 @@ class MediaOutput {
         this.map = null;
         this.lastAsked = null;
         this.lastStatus = 0;
-        this.key = '';
-        this.bytes = null;
         this.artwork.get(null, false);
     }
 }

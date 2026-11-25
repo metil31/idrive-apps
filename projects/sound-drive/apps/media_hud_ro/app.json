@@ -2,7 +2,7 @@
   "id": "media_hud_ro",
   "title": "Media HUD România",
   "description": "Melodia și artistul din CarPlay pe HUD și pe harta din bord, cu poziție și mărime reglabile.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "language": "ro",
   "license": "MIT",
   "vendor": "custom",

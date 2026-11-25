@@ -14,13 +14,13 @@ Necesită `cluster-render`. ETA pe Waze cu iPhone depinde de datele de traseu pr
 
 HUD România afișează ETA din actualizările primite după confirmarea traseului CarPlay. Ascunde estimarea când ghidajul se oprește, sursa își pierde confirmarea sau actualizările expiră.
 
-Butonul **Test Waze** verifică dacă aplicația poate citi ecranul central. Cu mașina staționată, pornește testul, revino în Waze și lasă ecranul deschis timp de 30 de secunde, apoi redeschide HUD România. Din versiunea 0.1.4, testul încearcă întâi captura RAW, apoi captura PNG. Rezultatul arată metoda și dimensiunea cadrului sau eroarea fiecărei metode. Fișierele temporare sunt șterse după test.
-
 ## Media HUD România
 
 Aplicație separată pentru melodia și artistul din CarPlay. În Setări poți muta textul pe orizontală și verticală. Implicit apare sub poziția de jos a ETA. Se ascunde la pauză sau când se deconectează sursa CarPlay. Pentru a trece de la afișarea integrată în HUD România 0.1.1 la aplicația separată, actualizează mai întâi HUD România la 0.1.2. [Credite și licențe](projects/sound-drive/apps/media_hud_ro/NOTICE).
 
 Din versiunea 0.1.1 poți alege HUD, bord sau ambele. Mărimea și poziția se reglează separat. Pe bord, textul urmează harta activă Maps on cluster, inclusiv în tema care o găzduiește. Opțiunea **Coperta albumului** este dezactivată implicit și citește imaginea JPEG locală dacă iDrive o furnizează pentru piesa curentă.
+
+Pe HUD, textul lung este scurtat cu puncte de suspensie. Grupul cu titlul, artistul și coperta ocupă maximum 300 px din cei 800 px disponibili, inclusiv la mărimea maximă. Pe harta din bord, informațiile apar pe un fundal gri-negru semitransparent, cu capete rotunjite.
 
 ## Speed Limit România
 

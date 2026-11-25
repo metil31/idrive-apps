@@ -37,6 +37,21 @@ async function verify() {
     const artCanvas = new Canvas(410, 56).clear();
     drawTrack(artCanvas, trackWithCover, image);
     assert.ok(artCanvas.d.some((pixel, i, data) => i % 4 === 0 && pixel === 180 && data[i + 1] === 32));
+    const narrow = new Canvas(200, 56);
+    const labels = [];
+    narrow.text = (...args) => { labels.push(args); };
+    const long = { title: song.title.repeat(20), artist: song.artist.repeat(20) };
+    drawTrack(narrow, long, image);
+    assert.strictEqual(labels.length, 2);
+    for (const [label, x, , size, , options] of labels) {
+        assert.ok(label.endsWith('...') && x + narrow.textWidth(label, size, options) <= 200);
+    }
+    const pillCanvas = new Canvas(410, 56).clear();
+    drawTrack(pillCanvas, song, image, true);
+    const hasPill = (bytes) => bytes.some((value, i) =>
+        i % 4 === 0 && value === 23 && bytes[i + 1] === 25 && bytes[i + 2] === 29 && bytes[i + 3] === 208);
+    assert.ok(hasPill(pillCanvas.d) && pillCanvas.d[3] === 0, 'map pill has a translucent centre and clear corners');
+    assert.ok(!hasPill(artCanvas.d), 'the windshield texture stays transparent behind the text');
     assert.strictEqual(art.get(Object.assign({}, trackWithCover, { title: 'Altă melodie' }), true), null);
     await new Promise((resolve) => setImmediate(resolve));
     assert.strictEqual(art.get(Object.assign({}, trackWithCover, { title: 'Altă melodie' }), true), null);
@@ -86,23 +101,24 @@ async function verify() {
         ready({ statusConditionVehicle: 'FAHREN' });
         assert.deepStrictEqual(service.track(), song);
         const cr = clients[0];
-        assert.deepStrictEqual([cr.spec.x, cr.spec.y, cr.spec.yield, cr.spec.klass], [195, 322, 1, 'overlay']);
-        assert.ok(cr.frames[0].some((pixel, i) => i % 4 === 3 && i >= 27 * 410 * 4 && pixel > 0));
+        assert.deepStrictEqual([cr.spec.x, cr.spec.y, cr.spec.yield, cr.spec.klass, cr.spec.w, cr.spec.iw], [300, 322, 1, 'overlay', 200, 200]);
+        assert.ok(cr.frames[0].some((pixel, i) => i % 4 === 3 && i >= 27 * 200 * 4 && pixel > 0));
         values.positionX = -120;
         values.positionY = 200;
         changed();
-        assert.deepStrictEqual(cr.change, { x: 75, y: 172, w: 410, h: 56 });
+        assert.deepStrictEqual(cr.change, { x: 180, y: 172, w: 200, h: 56 });
         assert.strictEqual(cr.frames.length, 1, 'changing position reuses the pixels');
         player.currentItemMetadata({ title: 'Altă melodie', artist: 'Alt artist' });
         assert.strictEqual(cr.frames.length, 2);
         values.hudSize = 150;
         changed();
-        assert.strictEqual(cr.change.w, 615);
+        assert.strictEqual(cr.change.w, 300, 'even the largest HUD text stays compact');
         values.show = 'both';
         changed();
         assert.ok(cr.asked);
         cr.emit('status', 'layer 8 video of waze-on-cluster on map, content z 0: shown');
         assert.deepStrictEqual([cr.spec.target, cr.spec.x, cr.spec.y], ['map', 339, 57]);
+        assert.ok(hasPill(cr.frames[cr.frames.length - 1]), 'the map uses the pill');
         const host = { into: 'panel', shown: 1, x: 440, y: 150, w: 544, h: 240 };
         cr.emit('host', 'map', host);
         cr.emit('status', 'layer 8 video of unrelated on panel, content z 0: shown');
