@@ -4,7 +4,7 @@ const { MAP, hostArea, mapDisplays } = require('./map-area');
 const { AlbumArt } = require('./album-art');
 
 const HUD_TEXTURE = { w: 200, h: 56, scale: 1 };
-const CLUSTER_TEXTURE = { w: 410, h: 68, scale: 2 };
+const CLUSTER_TEXTURE = { w: 250, h: 68, scale: 2 };
 const HUD = { x: 0, y: 0, w: 800, h: 480 };
 const TITLE = { align: 'center', font: 'bold', literal: true };
 const ARTIST = { align: 'center', font: 'label', literal: true };

@@ -46,13 +46,21 @@ async function verify() {
     for (const [label, x, , size, , options] of labels) {
         assert.ok(label.endsWith('...') && x + narrow.textWidth(label, size, options) <= 200);
     }
-    const pillCanvas = new Canvas(410, 68).clear();
+    const pillCanvas = new Canvas(250, 68).clear();
     drawTrack(pillCanvas, song, image, true);
     const hasPill = (bytes) => bytes.some((value, i) =>
         i % 4 === 0 && value === 23 && bytes[i + 1] === 25 && bytes[i + 2] === 29 && bytes[i + 3] === 208);
     assert.ok(hasPill(pillCanvas.d) && pillCanvas.d[3] === 0, 'map pill has a translucent centre and clear corners');
-    assert.strictEqual(pillCanvas.d[(5 * 410 + 205) * 4 + 3], 208, 'pill extends above the cover');
-    assert.strictEqual(pillCanvas.d[(62 * 410 + 205) * 4 + 3], 208, 'pill extends below the cover');
+    assert.strictEqual(pillCanvas.d[(5 * 250 + 125) * 4 + 3], 208, 'pill extends above the cover');
+    assert.strictEqual(pillCanvas.d[(62 * 250 + 125) * 4 + 3], 208, 'pill extends below the cover');
+    const labelsOnBoard = [];
+    pillCanvas.text = (...args) => { labelsOnBoard.push(args); };
+    drawTrack(pillCanvas, long, image, true);
+    assert.strictEqual(labelsOnBoard.length, 2);
+    for (const [label, x, , size, , options] of labelsOnBoard) {
+        assert.ok(label.endsWith('...') && x + pillCanvas.textWidth(label, size, options) <= 222,
+            'long board lines leave room for the cover and end padding');
+    }
     assert.ok(!hasPill(artCanvas.d), 'the windshield texture stays transparent behind the text');
     assert.strictEqual(art.get(Object.assign({}, trackWithCover, { title: 'Altă melodie' }), true), null);
     await new Promise((resolve) => setImmediate(resolve));
@@ -119,23 +127,27 @@ async function verify() {
         changed();
         assert.ok(cr.asked);
         cr.emit('status', 'layer 8 video of waze-on-cluster on map, content z 0: shown');
-        assert.deepStrictEqual([cr.spec.target, cr.spec.x, cr.spec.y], ['map', 339, 51]);
-        assert.deepStrictEqual([cr.spec.iw, cr.spec.ih, cr.spec.sampling], [820, 136, 'bilinear']);
+        assert.deepStrictEqual([cr.spec.target, cr.spec.x, cr.spec.y], ['map', 419, 51]);
+        assert.deepStrictEqual([cr.spec.iw, cr.spec.ih, cr.spec.sampling], [500, 136, 'bilinear']);
         const boardFrame = cr.frames[cr.frames.length - 1];
-        assert.strictEqual(boardFrame.length, 820 * 136 * 4);
+        assert.strictEqual(boardFrame.length, 500 * 136 * 4);
         assert.ok(hasPill(boardFrame), 'the map uses a high-resolution translucent pill');
+        values.clusterSize = 150;
+        changed();
+        assert.strictEqual(cr.change.w, 375, 'board media stays narrow at maximum size');
+        values.clusterSize = 100;
         const host = { into: 'panel', shown: 1, x: 440, y: 150, w: 544, h: 240 };
         cr.emit('host', 'map', host);
         cr.emit('status', 'layer 8 video of unrelated on panel, content z 0: shown');
         assert.strictEqual(cr.specs.length, 2);
         cr.emit('status', 'layer 8 video of waze-on-cluster on panel, content z 0: shown');
         assert.deepStrictEqual([cr.spec.target, cr.spec.x, cr.spec.y, cr.spec.w, cr.spec.h, cr.spec.iw, cr.spec.ih],
-            ['panel', 610, 176, 205, 34, 820, 136]);
+            ['panel', 650, 176, 125, 34, 500, 136]);
         values.clusterX = -200;
         values.clusterSize = 80;
         changed();
-        assert.strictEqual(cr.change.w, 164);
-        assert.strictEqual(cr.change.x, 530);
+        assert.strictEqual(cr.change.w, 100);
+        assert.strictEqual(cr.change.x, 562);
         cr.emit('status', 'layer 8 video of waze-on-cluster on panel, content z 0: stalled');
         assert.ok(cr.removed.includes(3) && !cr.removed.includes(1), 'stalled map drops only the board layer');
         player.playerState('PLAYER_STATE_PAUSE');
