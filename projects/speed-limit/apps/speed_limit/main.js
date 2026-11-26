@@ -81,8 +81,8 @@ class Engine {
             if (/^def/.test(k) && this.matcher) this.matcher.setDefaults(this.defaults());
             if (this.active) {
                 const now = Date.now();
-                if (!this.junctionHud()) this.junctionDemo = null;
-                if (k === 'junctionHud' || k === 'show') {
+                if (!this.junctionAvailable()) this.junctionDemo = null;
+                if (k === 'junctionHud' || k === 'junctionCluster' || k === 'show') {
                     this.junction = null;
                     this.junctions.update(null, null);
                 }
@@ -169,7 +169,7 @@ class Engine {
         if (!this.demo) { this.position.poll(now); this.outputs.tick(now); } else this.outputs.tick(now);
         this.fix = this.demo ? this.demo.fix(now) : this.position.fix(now);
         this.speed = this.demo ? this.demo.speedKmh(now) : this.position.speedKmh(now);
-        const alerts = this.junctionHud() && this.settings.get('junctionHud') === true;
+        const alerts = this.junctionAvailable(true);
         const approaching = alerts && this.condition === 10 && this.speed !== null && (this.speed >= 2 || !!this.junction);
         if (!this._still() || approaching) this.res = this.matcher.update(this.fix, now);
         // a speed camera ahead (setting "cameras"): a few multiplications per camera near the car
@@ -182,13 +182,14 @@ class Engine {
         this._changed();
     }
 
-    junctionHud() {
+    junctionAvailable(requireEnabled = false) {
         const show = this.settings.get('show');
-        return show === 'hud' || show === 'both';
+        return ((show === 'hud' || show === 'both') && (!requireEnabled || this.settings.get('junctionHud') === true)) ||
+            ((show === 'cluster' || show === 'both') && (!requireEnabled || this.settings.get('junctionCluster') === true));
     }
 
     canPreviewJunction(now) {
-        return this.active && this.junctionHud() && demoAllowed(this.condition, this.position.speedKmh(now));
+        return this.active && this.junctionAvailable() && demoAllowed(this.condition, this.position.speedKmh(now));
     }
 
     previewJunction(kind) {
@@ -368,8 +369,8 @@ function signState(e, t) {
     if (!e.active) return e.enabled() ? 'Car off' : 'Off';
     if (!o.connected) return 'Unavailable (no cluster-render)';
     if (t === 'cluster' && !o.mapBusy && !o.panelMapBy) return 'Waiting for the phone map';
-    if (t === 'hud' && (e.junctionDemo || e.junction)) {
-        const alert = e.junctionDemo || e.junction;
+    const alert = e.junctionDemo || e.junction;
+    if (alert && (alert.demo || e.settings.get(t === 'cluster' ? 'junctionCluster' : 'junctionHud') === true)) {
         return (alert.demo ? 'DEMO ' : '') + (alert.kind === 'stop' ? 'STOP' : 'Cedează trecerea') + ', ' + alert.metres + ' m';
     }
     if (!e.view) return 'No limit to show';
@@ -479,9 +480,13 @@ mgu.run({
             const route = clusterRoute(engine);
             once('clusterRoute', route, () => ui.text('SL_CL_ROUTE', route));
             renderPlace('hud');
-            const hud = engine.junctionHud(), preview = engine.canPreviewJunction(Date.now()), demo = !!engine.junctionDemo;
+            const preview = engine.canPreviewJunction(Date.now()), demo = !!engine.junctionDemo;
             once('junction', s.get('junctionHud') === true, () => ui.checked('SL_JUNCTION', s.get('junctionHud') === true));
+            const hud = on(placeOf('hud')), cluster = on(placeOf('cluster'));
             once('en:junction', hud, () => ui.enabled('SL_JUNCTION', hud));
+            once('junctionCluster', s.get('junctionCluster') === true,
+                () => ui.checked('SL_JUNCTION_CL', s.get('junctionCluster') === true));
+            once('en:junctionCluster', cluster, () => ui.enabled('SL_JUNCTION_CL', cluster));
             once('en:preview', preview, () => {
                 ui.enabled('SL_JUNCTION_YIELD', preview);
                 ui.enabled('SL_JUNCTION_STOP', preview);
@@ -495,7 +500,10 @@ mgu.run({
         ui.onClick('SL_NOLIMIT', (ev) => { const v = NOLIMIT[ev.row]; if (v) { done.nolim = ev.row; s.set('noLimit', v); } });
         ui.onClick('SL_CAMS', (ev) => { const v = CAMS[ev.row]; if (v) { done.cams = ev.row; s.set('cameras', v); } });
         ui.onClick('SL_HUD_KEEP', () => { if (on(placeOf('hud'))) s.set('hudKeep', !s.get('hudKeep')); });
-        ui.onClick('SL_JUNCTION', () => { if (engine.junctionHud()) s.set('junctionHud', s.get('junctionHud') !== true); });
+        ui.onClick('SL_JUNCTION', () => { if (on(placeOf('hud'))) s.set('junctionHud', s.get('junctionHud') !== true); });
+        ui.onClick('SL_JUNCTION_CL', () => {
+            if (on(placeOf('cluster'))) s.set('junctionCluster', s.get('junctionCluster') !== true);
+        });
         ui.onClick('SL_JUNCTION_YIELD', () => engine.previewJunction('yield'));
         ui.onClick('SL_JUNCTION_STOP', () => engine.previewJunction('stop'));
         ui.onClick('SL_JUNCTION_END', () => engine.previewJunction(null));

@@ -81,7 +81,7 @@ function line(frame, width, height, rect, threshold) {
             y0 = Math.min(y0, y); y1 = Math.max(y1, y + 1);
         }
         if (x - start >= 2 && y1 - y0 >= 2) {
-            glyphs.push({ start, end: x, height: y1 - y0, aspect: (x - start) / (y1 - y0),
+            glyphs.push({ start, end: x, top: y0, height: y1 - y0, aspect: (x - start) / (y1 - y0),
                 pixels: normalize(get, start, y0, x, y1) });
         }
     }
@@ -177,24 +177,75 @@ function readEta(frame, width, height, templates) {
     return reads[0] || null;
 }
 
+const TURN_THRESHOLDS = [187, 208, 166, 227];
+
+function readTurnDistance(frame, width, height, rect, threshold, templates) {
+    const glyphs = line(frame, width, height, rect, threshold);
+    if (!glyphs.length) return null;
+    const cap = Math.max(...glyphs.map(g => g.height));
+    for (const unit of ['km', 'mi', 'm']) for (const pattern of DISTANCES) {
+        const result = match(glyphs, pattern + unit, templates, cap);
+        if (!result || result.cost > 0.21) continue;
+        const value = result.text.slice(0, -unit.length);
+        if (Number(value.replace(',', '.')) > 0) return value + ' ' + unit;
+    }
+    return null;
+}
+
+function roundabout(frame, width, height, rect, templates) {
+    for (const threshold of [135, 105, 165]) {
+        const icons = line(frame, width, height, rect, threshold);
+        if (icons.length !== 1) continue;
+        const icon = icons[0], span = icon.end - icon.start;
+        if (icon.height < height * 0.055 || icon.aspect < 0.78 || icon.aspect > 1.24) continue;
+        const radial = (angle, radius) => {
+            const x = Math.floor(WIDTH * (0.5 + radius * Math.cos(angle)));
+            const y = Math.floor(HEIGHT * (0.5 + radius * Math.sin(angle)));
+            return icon.pixels[y * WIDTH + x];
+        };
+        let rim = 0, corners = 0;
+        for (let i = 0; i < 24; i++) {
+            const angle = i * Math.PI / 12;
+            if (Math.max(radial(angle, 0.40), radial(angle, 0.46)) >= 0.5) rim++;
+            if (i % 6 === 3 && radial(angle, 0.61) >= 0.5) corners++;
+        }
+        if (rim < 19 || corners > 1) continue;
+        const digitRect = [
+            rect[0] + (icon.start + span * 0.26) * 1280 / width,
+            rect[1] + (icon.top + icon.height * 0.20) * 480 / height,
+            rect[0] + (icon.end - span * 0.26) * 1280 / width,
+            rect[1] + (icon.top + icon.height * 0.80) * 480 / height,
+        ];
+        const readings = new Set();
+        for (const level of [187, 208, 166]) {
+            const digits = line(frame, width, height, digitRect, level);
+            if (digits.length !== 1 || digits[0].height < icon.height * 0.28 || digits[0].height > icon.height * 0.57) continue;
+            const result = match(digits, '#', templates, digits[0].height);
+            if (result && result.cost <= 0.22) readings.add(Number(result.text));
+        }
+        if (readings.size === 1) return [...readings][0];
+        return 0;
+    }
+    return null;
+}
+
 function readTurn(frame, width, height, templates, layout) {
     const areas = TURNS[layout];
     if (!areas || frame.length !== width * height * 4) return null;
-    for (const threshold of [187, 208, 166, 227]) {
-        const arrow = line(frame, width, height, areas[0], threshold);
-        if (arrow.length !== 1 || arrow[0].height < height * 0.055 || arrow[0].aspect < 0.65 || arrow[0].aspect > 1.1) continue;
-        const ranks = Object.keys(ARROWS).map(kind => ({ kind, cost: arrow[0].pixels.reduce(
-            (sum, p, i) => sum + Math.abs(p - Number(ARROWS[kind][i])), 0) / (WIDTH * HEIGHT) })).sort((a, b) => a.cost - b.cost);
-        if (ranks[0].cost > 0.15 || ranks[1].cost - ranks[0].cost < 0.13) continue;
-        const glyphs = line(frame, width, height, areas[1], threshold);
-        if (!glyphs.length) continue;
-        const cap = Math.max(...glyphs.map(g => g.height));
-        for (const unit of ['km', 'mi', 'm']) for (const pattern of DISTANCES) {
-            const result = match(glyphs, pattern + unit, templates, cap);
-            if (!result || result.cost > 0.21) continue;
-            const value = result.text.slice(0, -unit.length);
-            if (Number(value.replace(',', '.')) > 0) return { kind: ranks[0].kind, distance: value + ' ' + unit };
+    const exit = roundabout(frame, width, height, areas[0], templates);
+    if (exit === 0) return null;
+    for (const threshold of TURN_THRESHOLDS) {
+        let kind = 'roundabout';
+        if (exit === null) {
+            const arrow = line(frame, width, height, areas[0], threshold);
+            if (arrow.length !== 1 || arrow[0].height < height * 0.055 || arrow[0].aspect < 0.65 || arrow[0].aspect > 1.1) continue;
+            const ranks = Object.keys(ARROWS).map(kind => ({ kind, cost: arrow[0].pixels.reduce(
+                (sum, p, i) => sum + Math.abs(p - Number(ARROWS[kind][i])), 0) / (WIDTH * HEIGHT) })).sort((a, b) => a.cost - b.cost);
+            if (ranks[0].cost > 0.15 || ranks[1].cost - ranks[0].cost < 0.13) continue;
+            kind = ranks[0].kind;
         }
+        const distance = readTurnDistance(frame, width, height, areas[1], threshold, templates);
+        if (distance) return exit === null ? { kind, distance } : { kind, distance, exit };
     }
     return null;
 }

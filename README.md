@@ -32,13 +32,15 @@ Textul lung este scurtat cu puncte de suspensie. La mărimea maximă, grupul cu 
 
 Din versiunea 1.1.5, semnul urmează harta Maps on cluster când o temă o găzduiește în panoul de bord. Dimensiunea și poziția configurate pentru bord se adaptează la dreptunghiul hărții, iar semnul dispare când fluxul hărții se oprește.
 
-Din 1.1.6, în secțiunea „Indicatoare de prioritate pe HUD” poți activa avertizările offline pentru „Cedează trecerea” și „STOP”. Semnul de viteză se estompează, indicatorul de prioritate și distanța apar în același loc, apoi semnul de viteză revine. Demo-urile sunt disponibile cu mașina staționată și afișarea pe HUD activată. Poți regla poziția cu butoanele HUD existente, în pași de 10 px. Demo-ul durează cel mult 90 s și se oprește când ieși din meniu sau mașina începe să se miște.
+Din 1.1.6, în secțiunea „Indicatoare de prioritate” poți activa avertizările offline pentru „Cedează trecerea” și „STOP”. Semnul de viteză se estompează, indicatorul de prioritate și distanța apar în același loc, apoi semnul de viteză revine. Demo-urile sunt disponibile cu mașina staționată și afișarea pe HUD activată. Poți regla poziția cu butoanele HUD existente, în pași de 10 px. Demo-ul durează cel mult 90 s și se oprește când ieși din meniu sau mașina începe să se miște.
 
 Pentru proveniența datelor, sursele independente și metoda de verificare, vezi [verificarea limitelor și indicatoarelor](projects/speed-limit/VERIFICARE.md).
 
 Versiunea 1.1.7 aplică limita documentată de 30 km/h pe două segmente din Strada Rondă, Sectorul 2. [Informarea ADP Sector 2](https://adp2.ro/wp-content/uploads/Informare-sensuri-unice-cvartal-4.pdf)
 
 În 1.1.8, importul național acceptă și indicatoare STOP și Cedează marcate separat, cu sens explicit, precum și puncte fix la despărțirea unui drum cu sens unic în două segmente, când intrarea este unică și numele drumului se potrivește. Pachetul conține 19.739 de înregistrări de prioritate.
+
+În 1.1.9, „Cedează trecerea” și „STOP” apar și pe harta activă din bord, inclusiv în temele care găzduiesc harta. Avertizările din bord au un comutator propriu, pornit implicit, și folosesc poziția și mărimea semnului de viteză configurate pentru bord. Demo-urile urmează afișajele selectate în aplicație.
 
 ## Scaune calde
 
@@ -52,14 +54,14 @@ Versiune experimentală pentru mașini cu traseu de încălzire frontală prin B
 
 În 0.2.0, citirea pornește automat în starea READY când este activă cel puțin o opțiune de afișare. Lasă Waze în prim-plan pe ecranul central, cu un traseu activ. Ora sosirii, durata și distanța apar într-o pastilă pe HUD sau pe harta activă din bord, cu reglaje independente. După schimbarea ecranului, ultima estimare poate rămâne vizibilă până la două minute de la ultima captură validă.
 
-Săgețile de viraj la stânga și la dreapta se activează separat pe HUD și pe hartă. Au propriile controale de poziție și mărime și afișează distanța până la manevră. Modul este experimental, bazat pe capturi Waze în engleză. Un viraj apare după două cadre cu aceeași direcție și dispare când panoul dispare, când se schimbă direcția sau când expiră informația.
+Manevrele se activează separat pe HUD și pe hartă, cu propriile reglaje de poziție și mărime. În 0.2.1, pe lângă săgețile de stânga și dreapta, un sens giratoriu poate afișa numărul ieșirii într-un cerc, alături de distanță. Citirea este experimentală și confirmă aceeași manevră în două cadre. Simbolul dispare când panoul dispare, când se schimbă manevra sau când expiră informația.
 
 ## Surse și licențe
 
 Fiecare aplicație folosește propriul kit de construire. Versiunile sunt actualizate aici prin importarea și verificarea surselor originale.
 
 - **Sound Drive 1.0.9** și **Sound Drive Audio**, cod MIT. [Upstream Nico1003/sound-drive](https://github.com/Nico1003/sound-drive/tree/b7901d9abc2f69464def12278c81bb8023379224) · [Versiunea română la b42cd42](https://github.com/metil31/sound-drive-ro/tree/b42cd42e7407222bb2c723b74c0e4df31a24f87f) · [Licență](projects/sound-drive/LICENSE).
-- **Speed Limit România 1.1.8**, cod GPL-3.0-or-later, cu notificările MIT ale componentelor preluate. [Upstream hexlay/idrive7-custom-apps](https://github.com/hexlay/idrive7-custom-apps) · [Baza versiunii române la 77b05b0](https://github.com/metil31/idrive7-speed-limit-romania/tree/77b05b0d6bf6aebda431770fd37e3dd2b7ecca1d) · [GPL](projects/speed-limit/LICENSE) · [MIT](projects/speed-limit/LICENSE.MIT) · [Licența graficii indicatoarelor](projects/speed-limit/apps/speed_limit/NOTICE).
+- **Speed Limit România 1.1.9**, cod GPL-3.0-or-later, cu notificările MIT ale componentelor preluate. [Upstream hexlay/idrive7-custom-apps](https://github.com/hexlay/idrive7-custom-apps) · [Baza versiunii române la 77b05b0](https://github.com/metil31/idrive7-speed-limit-romania/tree/77b05b0d6bf6aebda431770fd37e3dd2b7ecca1d) · [GPL](projects/speed-limit/LICENSE) · [MIT](projects/speed-limit/LICENSE.MIT) · [Licența graficii indicatoarelor](projects/speed-limit/apps/speed_limit/NOTICE).
 
 Datele din harta offline sunt © [contributorii OpenStreetMap](https://www.openstreetmap.org/copyright), licența [ODbL](https://opendatacommons.org/licenses/odbl/1-0/). Baza de date completă este disponibilă ca [romania.pack](projects/speed-limit/apps/speed_limit/romania.pack), cu o [notificare inclusă în pachet](projects/speed-limit/apps/speed_limit/NOTICE). Pachetul folosește [extrasul România de la Geofabrik](https://download.geofabrik.de/europe/romania.html). Codul de generare a hărții este în [pack_sli.py](projects/speed-limit/kit/tools/pack_sli.py).
 

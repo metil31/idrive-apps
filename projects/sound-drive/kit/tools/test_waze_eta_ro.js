@@ -11,15 +11,14 @@ const { state, KEEP, LEASE } = require('../../tools/waze-eta-reader/reader');
 const atlas = require('../../tools/waze-eta-reader/eta-atlas.json');
 const templates = model([atlas]);
 
-function frame(text, width, height) {
+function frame(text, width, height, left = 340, baseline = 448, sizeIndex = 3) {
     const buffer = Buffer.alloc(width * height * 4);
-    const size = atlas.sizes[3];
+    const size = atlas.sizes[sizeIndex];
     const alpha = zlib.inflateSync(Buffer.from(size.alpha, 'base64'));
-    let left = 340;
     for (const ch of text) {
         if (ch === ' ') { left += 9; continue; }
         const [x, y, w, h] = size.glyphs[ch.charCodeAt(0)];
-        const top = 448 - h;
+        const top = baseline - h;
         for (let ty = 0; ty < h; ty++) for (let tx = 0; tx < w; tx++) {
             const at = ((top + ty) * width + left + tx) * 4;
             const v = alpha[(y + ty) * size.atlasW + x + tx];
@@ -35,6 +34,20 @@ const synthetic = readEta(frame('09:48 ETA 27 min 25 km', 1280, 480), 1280, 480,
 assert.deepStrictEqual(values(synthetic), ['09:48', '27 min', '25 km', 'dashboard']);
 assert.strictEqual(readEta(Buffer.alloc(1280 * 480 * 4), 1280, 480, templates), null);
 assert.strictEqual(readEta(Buffer.alloc(12), 1280, 480, templates), null);
+
+for (const exit of [1, 2, 3]) {
+    const digit = String(exit), [,, digitWidth, digitHeight] = atlas.sizes[0].glyphs[digit.charCodeAt(0)];
+    const turnFrame = frame('100 m', 1280, 480, 175, 59);
+    const number = frame(digit, 1280, 480, Math.round(136 - digitWidth / 2), Math.round(51 + digitHeight / 2), 0);
+    for (let y = 30; y < 73; y++) for (let x = 114; x < 158; x++) {
+        const radius = Math.hypot(x - 136, y - 51);
+        const at = (y * 1280 + x) * 4;
+        if (radius >= 16 && radius <= 21) turnFrame.fill(x < 136 ? 145 : 250, at, at + 3);
+        else number.copy(turnFrame, at, at, at + 3);
+    }
+    assert.deepStrictEqual(readTurn(turnFrame, 1280, 480, templates, 'fullscreen'),
+        { kind: 'roundabout', distance: '100 m', exit });
+}
 
 let time = 0;
 const reader = state(() => time);
@@ -53,6 +66,12 @@ reader.start();
 reader.result(token, synthetic, null, { kind: 'left', distance: '60 m' });
 assert.strictEqual(reader.snapshot().eta.arrival, '09:48');
 assert.strictEqual(reader.snapshot().turn.distance, '60 m');
+const roundabout = { kind: 'roundabout', exit: 1, distance: '100 m' };
+reader.result(token, synthetic, null, roundabout);
+reader.result(token, synthetic, null, roundabout);
+assert.strictEqual(reader.snapshot().turn.exit, 1);
+reader.result(token, synthetic, null, Object.assign({}, roundabout, { exit: 2 }));
+assert.strictEqual(reader.snapshot().turn, null);
 reader.result(token, synthetic, null, { kind: 'right', distance: '530 m' });
 assert.strictEqual(reader.snapshot().turn, null);
 reader.setFront(false);
@@ -91,7 +110,8 @@ assert.notStrictEqual(missingGate.captureToken(), initial);
 
 const external = process.argv.slice(2);
 if (external.length) {
-    assert.strictEqual(external.length, 3);
+    assert.ok(external.length === 3 || external.length === 4);
+    if (external[3]) assert.deepStrictEqual(readTurn(fs.readFileSync(external[3]), 1280, 480, templates, 'fullscreen'), roundabout);
     const read = (file) => readEta(fs.readFileSync(file), 1280, 480, templates);
     assert.deepStrictEqual(values(read(external[0])), ['17:15', '36 min', '12 km', 'dashboard']);
     assert.deepStrictEqual(values(read(external[1])), ['17:15', '36 min', '12 km', 'fullscreen']);
@@ -133,6 +153,7 @@ async function testHud() {
         text(text) { draws.push(text); }
         textWidth() { return 100; }
         polyline() {}
+        arc() {}
     }
     class ScaledCanvas extends Canvas { constructor() { super(); this.canvas = this; } }
     class Renderer extends EventEmitter {
@@ -184,6 +205,9 @@ async function testHud() {
     renderer.emit('host', 'map', { into: 'panel', shown: 1, x: 100, y: 30, w: 900, h: 400 });
     renderer.emit('status', 'layer 1 video of robertn_waze_cluster on panel, content z 0: shown');
     assert.deepStrictEqual(targets.slice(-2).map(x => x.target), ['panel', 'panel']);
+    payload = { eta: payload.eta, turn: Object.assign({ at: Date.now() }, roundabout) };
+    tick(); await flush();
+    assert.deepStrictEqual(draws.slice(-2), ['1', '100 m']);
     payload = { eta: payload.eta, turn: null };
     tick(); await flush();
     assert.ok(dropped.includes(5), 'turn disappears independently of ETA');

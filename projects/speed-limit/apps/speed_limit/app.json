@@ -2,7 +2,7 @@
   "id": "speed_limit",
   "title": "Speed Limit România",
   "description": "Limita drumului curent și avertizări de prioritate din harta offline OpenStreetMap România. Doar citire.",
-  "version": "1.1.8",
+  "version": "1.1.9",
   "vendor": "custom",
   "loggingId": "OASL",
   "iconGlyph": "60",
@@ -235,8 +235,9 @@
           "SL_HUD_DEFAULT",
           "Default position"
         ],
-        ["header", "SL_HEAD_JUNCTION", "Indicatoare de prioritate pe HUD"],
-        ["checkbox", "SL_JUNCTION", "Avertizări Cedează trecerea și STOP"],
+        ["header", "SL_HEAD_JUNCTION", "Indicatoare de prioritate"],
+        ["checkbox", "SL_JUNCTION", "Cedează trecerea și STOP pe HUD"],
+        ["checkbox", "SL_JUNCTION_CL", "Cedează trecerea și STOP în bord"],
         ["button", "SL_JUNCTION_YIELD", "Demo: Cedează trecerea"],
         ["button", "SL_JUNCTION_STOP", "Demo: STOP"],
         ["button", "SL_JUNCTION_END", "Oprește demo-ul"],
@@ -396,6 +397,13 @@
       "label": "Avertizări Cedează trecerea și STOP",
       "type": "bool",
       "default": false,
+      "hidden": true
+    },
+    {
+      "key": "junctionCluster",
+      "label": "Cedează trecerea și STOP în bord",
+      "type": "bool",
+      "default": true,
       "hidden": true
     },
     {

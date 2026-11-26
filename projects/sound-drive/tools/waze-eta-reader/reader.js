@@ -42,9 +42,10 @@ function state(now) {
             if (!active() || !canCapture() || token !== generation) return;
             if (!value || !turn) clearTurn();
             else {
-                if (candidateTurn === turn.kind) lastTurn = Object.assign({ at: now() }, turn);
+                const key = turn.kind + ':' + (turn.exit || '');
+                if (candidateTurn === key) lastTurn = Object.assign({ at: now() }, turn);
                 else lastTurn = null;
-                candidateTurn = turn.kind;
+                candidateTurn = key;
             }
             const wasLive = code === 'live';
             code = value ? 'confirming' : reason;

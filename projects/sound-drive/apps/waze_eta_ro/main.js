@@ -82,7 +82,13 @@ function pill(part, value) {
     const cv = highRes ? new ScaledCanvas(w, h, 2) : new Canvas(w, h);
     cv.clear();
     cv.roundRect(1, 1, w - 2, h - 2, (h - 2) / 2, [24, 27, 31, 207]);
-    if (part.turn) {
+    if (part.turn && value.kind === 'roundabout') {
+        const x = 32, y = h / 2;
+        cv.arc(x, y, 10, 13, 0, 360, '#7a8188');
+        cv.arc(x, y, 10, 13, 8, 156, '#ffffff');
+        cv.arc(x, y, 10, 13, 182, 315, '#ffffff');
+        cv.text(String(value.exit), x, y + 5, 15, '#ffffff', { align: 'center', font: 'bold', literal: true });
+    } else if (part.turn) {
         const x = n => value.kind === 'right' ? 23 + n : 23 + 25 - n;
         const y = h / 2 - 13;
         cv.polyline([[x(0), y + 24], [x(0), y + 15], [x(3), y + 9], [x(9), y + 5], [x(23), y + 5]], 4, '#ffffff');
@@ -164,7 +170,7 @@ function background({ app, settings, signals, log }) {
                 layers.set(part, layer = { ref, target, shape });
             } else if (shape !== layer.shape) { client.set(layer.ref, rect); layer.shape = shape; }
             const value = part.turn ? turn : eta;
-            const key = part.turn ? value.kind + value.distance : etaLabel(value);
+            const key = part.turn ? [value.kind, value.exit, value.distance].join(':') : etaLabel(value);
             if (layer.key !== key && client.pixels(layer.ref, null, pill(part, value))) layer.key = key;
         }
     }

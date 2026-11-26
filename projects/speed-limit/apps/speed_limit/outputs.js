@@ -49,14 +49,14 @@ function panelHost(event, targets) {
     return { x, y, w, h, sx, sy, sw, sh };
 }
 
-function hostedPlace(place, host) {
+function hostedPlace(place, host, signCenter = place.x + place.W - place.size / 2) {
     const horizontal = host.w / host.sw, vertical = host.h / host.sh;
     const scale = Math.min(horizontal, vertical, host.w / place.W, host.h / place.size);
     const w = Math.round(place.W * scale), h = Math.round(place.size * scale);
     if (h < 24) return null;
-    const centreX = host.x + (place.x + place.W - place.size / 2 - host.sx) * horizontal;
+    const centreX = host.x + (signCenter - host.sx) * horizontal;
     const centreY = host.y + (place.y + place.size / 2 - host.sy) * vertical;
-    const x = Math.max(host.x, Math.min(host.x + host.w - w, Math.round(centreX - w + h / 2)));
+    const x = Math.max(host.x, Math.min(host.x + host.w - w, Math.round(centreX - (signCenter - place.x) * scale)));
     const y = Math.max(host.y, Math.min(host.y + host.h - h, Math.round(centreY - h / 2)));
     return { x, y, w, h };
 }
@@ -203,10 +203,14 @@ class Outputs {
         const blend = this._blend(now);
         ['hud', 'map'].forEach((t) => {
             let L = this.layers[t];
-            const alpha = t === 'hud' ? 1 - blend : 1;
-            const view = this.view || (t === 'hud' && this.junction && this.junction.demo ? { limit: null, unknown: true } : null);
-            const show = !!(alpha && view && (view.limit || view.unknown) && this._wanted(t));
             const target = t === 'map' && this.panelMapBy ? 'panel' : t;
+            const setting = t === 'hud' ? 'junctionHud' : 'junctionCluster';
+            const priority = blend && this.junction && this._wanted(t) &&
+                (this.junction.demo || this.settings.get(setting) === true) ? blend : 0;
+            const yld = t === 'hud' && this.settings.get('hudKeep') ? 0 : 1;
+            const alpha = this._applyJunction(t, target, priority, yld) ? 1 - priority : 1;
+            const view = this.view || (this.junction && this.junction.demo && priority ? { limit: null, unknown: true } : null);
+            const show = !!(alpha && view && (view.limit || view.unknown) && this._wanted(t));
             if (L && L.target !== target) {
                 cr.drop(L.ref);
                 delete this.layerStates[L.ref];
@@ -230,7 +234,6 @@ class Outputs {
                 delete this.layerStates[L.ref];
                 L = null;
             }
-            const yld = t === 'hud' && this.settings.get('hudKeep') ? 0 : 1;
             if (!L) {
                 const ref = cr.image(Object.assign({ target, class: 'overlay', z: 20, iw: w.W, ih: w.size,
                     fps: t === 'hud' ? 20 : 4, visible: 1, contend: 0, yield: yld }, place));
@@ -245,38 +248,42 @@ class Outputs {
             }
             if (sign) { cr.pixels(L.ref, opacity(sign.px, alpha)); L.key = key; }
         });
-        this._applyJunction(blend);
     }
 
-    _applyJunction(blend) {
+    _applyJunction(surface, target, blend, yld) {
         const cr = this.cr, item = this.junction;
-        let layer = this.layers.junction;
-        if (!item || !blend || !this._wanted('hud')) {
-            if (layer) { cr.drop(layer.ref); delete this.layerStates[layer.ref]; delete this.layers.junction; }
-            return;
-        }
-        const { x, y, size } = this._where('hud', (this.view && this.view.camera) || '');
-        const frameKey = [item.kind, item.metres, !!item.demo, size, x].join(':');
-        let frame = layer && layer.frameKey === frameKey ? layer.frame : junctionFrame(item, size, false);
-        if (!frame.offset && x + frame.w > TARGETS.hud.w) frame = junctionFrame(item, size, true);
-        const place = { x: x - frame.offset, y, w: frame.w, h: size };
-        const yld = this.settings.get('hudKeep') ? 0 : 1;
-        if (layer && (layer.place.w !== place.w || layer.place.h !== place.h)) {
+        const key = surface + 'Junction';
+        let layer = this.layers[key];
+        if (!blend && !layer) return false;
+        const { x, y, size } = this._where(surface, '');
+        const frameKey = blend ? [item.kind, item.metres, !!item.demo, size, x].join(':') : '';
+        let frame = frameKey && (layer && layer.frameKey === frameKey ? layer.frame : junctionFrame(item, size, surface === 'map'));
+        if (frame && frame.offset > x) frame = junctionFrame(item, size, false);
+        if (frame && !frame.offset && x + frame.w > TARGETS[surface].w) frame = junctionFrame(item, size, true);
+        const origin = frame && Math.max(0, Math.min(TARGETS[surface].w - frame.w, x - frame.offset));
+        const place = frame && (target === 'panel' ?
+            hostedPlace({ x: origin, y, size, W: frame.w }, this.hostRect, origin + frame.offset + size / 2) :
+            { x: origin, y, w: frame.w, h: size });
+        if (layer && (!place || layer.target !== target || layer.frame.w !== frame.w || layer.size !== size)) {
             cr.drop(layer.ref);
             delete this.layerStates[layer.ref];
+            delete this.layers[key];
             layer = null;
         }
+        if (!place) return false;
         if (!layer) {
-            const ref = cr.image(Object.assign({ target: 'hud', class: 'overlay', z: 21, iw: frame.w, ih: size,
+            const ref = cr.image(Object.assign({ target, class: 'overlay', z: 21, iw: frame.w, ih: size,
                 fps: 20, visible: 1, contend: 0, yield: yld }, place));
-            layer = this.layers.junction = { ref, place, yld };
-        } else if (layer.place.x !== place.x || layer.place.y !== place.y || layer.yld !== yld) {
+            layer = this.layers[key] = { ref, target, size, place, yld };
+        } else if (layer.place.x !== place.x || layer.place.y !== place.y || layer.place.w !== place.w ||
+            layer.place.h !== place.h || layer.yld !== yld) {
             cr.set(layer.ref, Object.assign({ yield: yld }, place));
             layer.place = place;
             layer.yld = yld;
         }
         if (layer.frameKey !== frameKey || layer.blend !== blend) cr.pixels(layer.ref, opacity(frame.px, blend));
         Object.assign(layer, { frame, frameKey, blend });
+        return true;
     }
 
     /** Ask for the visible layers while cluster display is selected, even without a known limit. */

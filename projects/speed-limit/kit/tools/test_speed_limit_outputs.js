@@ -201,6 +201,10 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
         got.some((g) => g.t === 'F' && g.ref === small.ref && g.bytes === small.w * 40 * 4),
     '40 px HUD sign keeps its centre and sends the attached camera badge');
 
+    statusText = 'layer 4 video of robertn_waze_cluster on map, content z 0: shown\n';
+    out.tick(Date.now() + 20000);
+    await wait(150);
+    const mapSign = ops('layer').filter((m) => m.target === 'map' && m.z === 20).slice(-1)[0];
     const beforeAlert = got.length;
     out.setJunction({ kind: 'yield', metres: 60, demo: true }, Date.now());
     await wait(560);
@@ -210,7 +214,11 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
         'priority sign uses the speed sign position even with a camera badge');
     check(faded(small.ref).some((a) => a > 0 && a < 255) && faded(priority.ref).slice(-1)[0] === 255 &&
         ops('set').some((m) => m.ref === small.ref && m.visible === 0), 'speed sign fades out and priority sign fades in');
-    check(!got.slice(beforeAlert).some((g) => g.t === 'J' && g.m.target === 'map'), 'priority alert does not create a cluster layer');
+    const clusterAlert = ops('layer').find((m) => m.target === 'map' && m.z === 21);
+    check(clusterAlert && clusterAlert.x + clusterAlert.w === mapSign.x + mapSign.w && clusterAlert.y === mapSign.y &&
+        faded(clusterAlert.ref).slice(-1)[0] === 255 &&
+        ops('set').some((m) => m.ref === mapSign.ref && m.visible === 0),
+        'priority alert takes the cluster speed sign position and fades it out');
     settings.v.hudX += 10;
     out.setJunction({ kind: 'stop', metres: 40, demo: true }, Date.now());
     out.update({ limit: 130, camera: '350 m' }, Date.now());
@@ -220,6 +228,31 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
     await wait(560);
     check(ops('drop').some((m) => m.ref === priority.ref) && faded(small.ref).slice(-1)[0] === 255 &&
         ops('set').some((m) => m.ref === small.ref && m.visible === 1), 'the speed sign fades back after the alert');
+
+    check(ops('drop').some((m) => m.ref === clusterAlert.ref) &&
+        ops('set').some((m) => m.ref === mapSign.ref && m.visible === 1), 'cluster speed sign returns after the alert');
+
+    settings.v.junctionCluster = true;
+    settings.v.junctionHud = false;
+    settings.v.clusterX = 10;
+    out.setJunction({ kind: 'stop', metres: 30 }, Date.now());
+    await wait(560);
+    const mapOnly = ops('layer').filter((m) => m.z === 21).slice(-1)[0];
+    check(mapOnly.target === 'map' && mapOnly.x + mapOnly.w === clusterAlert.x + clusterAlert.w + 10 &&
+        ops('layer').filter((m) => m.target === 'hud' && m.z === 21).length === 1,
+        'cluster toggle and position work independently of the HUD');
+    statusText = 'layer 12 video of waze-on-cluster on panel, content z 2: shown\n';
+    send(client, host);
+    await wait(50);
+    out.tick(Date.now() + 20000);
+    await wait(170);
+    const panelAlert = ops('layer').filter((m) => m.z === 21).slice(-1)[0];
+    check(panelAlert.target === 'panel' && panelAlert.h === 55 &&
+        ops('drop').some((m) => m.ref === mapOnly.ref), 'priority alert follows the map into the hosted panel');
+    statusText = 'layer 12 video of waze-on-cluster on panel, content z 2: stalled\n';
+    out.tick(Date.now() + 40000);
+    await wait(150);
+    check(ops('drop').some((m) => m.ref === panelAlert.ref), 'priority alert leaves when the hosted map stops');
 
     out.stop();
     await wait(200);
