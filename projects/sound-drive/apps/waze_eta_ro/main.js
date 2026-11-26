@@ -169,11 +169,6 @@ function drawOverlay(part, value) {
 }
 
 const isClusterEta = part => part.target === 'map' && !part.turn;
-const GLASS_STOPS = [
-    [0, [84, 84, 84, 182]],
-    [0.48, [67, 67, 67, 191]],
-    [1, [53, 53, 53, 196]],
-];
 
 function glassFrame(part, value, previous) {
     const text = (value.demo ? 'Demo  ' : '') + etaLabel(value);
@@ -186,7 +181,7 @@ function glassFrame(part, value, previous) {
     const width = Math.max(card + 2 * margin, previous || 0);
     const cv = new ScaledCanvas(width, height, GLASS_SCALE).clear();
     const x = (width - card) / 2, radius = 14;
-    cv.card(x, 2, card, height - 4, radius, GLASS_STOPS);
+    cv.roundRect(x, 2, card, height - 4, radius, [0, 0, 0, 24]);
     cv.text(text, width / 2, height / 2 + size * 0.34 + 0.7, size, [12, 12, 12, 143], style);
     cv.text(text, width / 2, height / 2 + size * 0.34, size, '#ffffff', style);
     const pixels = cv.canvas.d;

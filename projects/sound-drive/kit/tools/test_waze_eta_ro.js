@@ -362,13 +362,12 @@ async function testHud() {
     assert.ok(firstEta.regions && firstEta.bytes < targets[1].iw * targets[1].ih * 4);
     const glass = frames.get(2);
     const pixel = (x, y) => Array.from(glass.subarray((y * targets[1].iw + x) * 4, (y * targets[1].iw + x) * 4 + 4));
-    const glassTop = pixel(etaEdges.left + 24, 55), glassBottom = pixel(etaEdges.left + 24, 145);
-    assert.ok(glassTop[3] >= 182 && glassBottom[3] <= 196 && glassBottom[3] > glassTop[3], 'glass has controlled translucency');
-    for (const [r, g, b] of [glassTop, glassBottom]) assert.ok(r === g && g === b, 'glass uses only neutral grey');
-    assert.ok(glassTop[0] > glassBottom[0], 'glass shade changes gently from top to bottom');
+    for (const y of [55, 145]) {
+        assert.deepStrictEqual(pixel(etaEdges.left + 24, y), [0, 0, 0, 24], 'the bar only dims the map slightly');
+    }
     for (const y of [9, 12, 14, 180, 182]) {
         const [r, g, b, alpha] = pixel(targets[1].iw / 2, y);
-        assert.ok(r === g && g === b && r <= 84 && alpha <= 196, 'glass edges have no contrasting outline or highlight');
+        assert.ok(r === 0 && g === 0 && b === 0 && alpha <= 24, 'the bar has no contrasting outline or highlight');
     }
     assert.ok(etaEdges.width < targets[1].iw - 40 && turnEdges.width < targets[2].iw - 40,
         'short labels leave no painted background in the unused side space');
