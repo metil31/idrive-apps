@@ -2,7 +2,7 @@
   "id": "waze_eta_ro",
   "title": "Waze ETA iOS",
   "description": "Waze arrival time and maneuvers on the HUD and cluster map.",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "language": "en",
   "license": "MIT",
   "vendor": "custom",

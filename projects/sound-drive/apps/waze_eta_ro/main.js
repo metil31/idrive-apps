@@ -170,6 +170,22 @@ function drawOverlay(part, value) {
 
 const isClusterEta = part => part.target === 'map' && !part.turn;
 
+function drawSoftBackdrop(canvas, x, width, height) {
+    const scale = GLASS_SCALE, radius = 14 * scale, softness = 5 * scale;
+    const left = x * scale, top = 2 * scale, w = width * scale, h = (height - 4) * scale;
+    for (let row = 0; row < h; row++) {
+        const dy = Math.abs(row + 0.5 - h / 2) - h / 2 + radius;
+        const start = ((top + row) * canvas.w + left) * 4 + 3;
+        for (let col = 0; col < w; col++) {
+            const dx = Math.abs(col + 0.5 - w / 2) - w / 2 + radius;
+            const distance = dx > 0 && dy > 0 ? Math.sqrt(dx * dx + dy * dy) : Math.max(dx, dy);
+            const t = Math.max(0, Math.min(1, (radius - distance) / softness));
+            const alpha = start + col * 4;
+            canvas.d[alpha] = Math.round(24 * t * t * (3 - 2 * t));
+        }
+    }
+}
+
 function glassFrame(part, value, previous) {
     const text = (value.demo ? 'Demo  ' : '') + etaLabel(value);
     const style = { align: 'center', font: 'bold', literal: true };
@@ -180,8 +196,7 @@ function glassFrame(part, value, previous) {
     const card = Math.min(part.w - 2 * margin, Math.ceil(measure.textWidth(text, size, style)) + 2 * padding);
     const width = Math.max(card + 2 * margin, previous || 0);
     const cv = new ScaledCanvas(width, height, GLASS_SCALE).clear();
-    const x = (width - card) / 2, radius = 14;
-    cv.roundRect(x, 2, card, height - 4, radius, [0, 0, 0, 24]);
+    drawSoftBackdrop(cv.canvas, (width - card) / 2, card, height);
     cv.text(text, width / 2, height / 2 + size * 0.34 + 0.7, size, [12, 12, 12, 143], style);
     cv.text(text, width / 2, height / 2 + size * 0.34, size, '#ffffff', style);
     const pixels = cv.canvas.d;
