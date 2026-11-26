@@ -11,6 +11,8 @@ const { menuLanguage } = require('./kit/menu-language');
 
 const SOCKET = '/run/waze-eta-reader/control.sock';
 const TEXTURE_SCALE = 3, GLASS_SCALE = 4;
+const CARD_MARGIN = 5;
+const CARD_FILL = [52, 52, 52, 224];
 const SIZE = [70, 80, 90, 100, 110, 120, 130];
 const HUD = { x: 0, y: 0, w: 800, h: 480 };
 const PARTS = [
@@ -137,8 +139,10 @@ function drawOverlay(part, value) {
     const lanes = value.lanes;
     const text = part.turn ? (value.demo ? 'Demo ' : '') + value.distance : (value.demo ? 'Demo  ' : '') + etaLabel(value);
     const style = { align: 'center', font: 'bold', literal: true };
-    const padding = 9, iconWidth = 28, leading = part.turn && value.kind !== 'lanes' ? iconWidth + 8 : 0;
-    const maxTextWidth = w - 2 * padding - leading - 2;
+    const cluster = part.target === 'map';
+    const padding = cluster ? 11 : 9, margin = cluster ? CARD_MARGIN : 1;
+    const iconWidth = 28, leading = part.turn && value.kind !== 'lanes' ? iconWidth + 8 : 0;
+    const maxTextWidth = w - 2 * (padding + margin) - leading;
     const baseSize = 18;
     const size = Math.min(baseSize, baseSize * maxTextWidth / Math.max(1, cv.textWidth(text, baseSize, style)));
     const bodyWidth = Math.min(maxTextWidth, Math.max(lanes ? lanes.length * 10 : 0, Math.ceil(cv.textWidth(text, size, style))));
@@ -147,7 +151,8 @@ function drawOverlay(part, value) {
     const left = (w - cardWidth) / 2, y = h / 2;
     const iconCenter = left + padding + iconWidth / 2;
     const textCenter = left + padding + leading + bodyWidth / 2;
-    cv.roundRect(left, 1, cardWidth, h - 2, 7, [24, 27, 31, 207]);
+    if (cluster) drawClusterCard(cv, left, cardWidth, h, 13);
+    else cv.roundRect(left, 1, cardWidth, h - 2, 7, [24, 27, 31, 207]);
     if (part.turn && value.kind.startsWith('fork-')) {
         drawFork(cv, iconCenter, y, value.kind === 'fork-left');
     } else if (part.turn && value.kind === 'roundabout') {
@@ -170,33 +175,43 @@ function drawOverlay(part, value) {
 
 const isClusterEta = part => part.target === 'map' && !part.turn;
 
-function drawSoftBackdrop(canvas, x, width, height) {
-    const scale = GLASS_SCALE, radius = 14 * scale, softness = 5 * scale;
-    const left = x * scale, top = 2 * scale, w = width * scale, h = (height - 4) * scale;
-    for (let row = 0; row < h; row++) {
-        const dy = Math.abs(row + 0.5 - h / 2) - h / 2 + radius;
-        const start = ((top + row) * canvas.w + left) * 4 + 3;
-        for (let col = 0; col < w; col++) {
-            const dx = Math.abs(col + 0.5 - w / 2) - w / 2 + radius;
-            const distance = dx > 0 && dy > 0 ? Math.sqrt(dx * dx + dy * dy) : Math.max(dx, dy);
-            const t = Math.max(0, Math.min(1, (radius - distance) / softness));
-            const alpha = start + col * 4;
-            canvas.d[alpha] = Math.round(74 * t * t * (3 - 2 * t));
+function roundedDistance(dx, dy) {
+    return dx > 0 && dy > 0 ? Math.sqrt(dx * dx + dy * dy) : Math.max(dx, dy);
+}
+
+function drawClusterCard(cv, x, width, height, radius) {
+    const top = 4, faceHeight = height - 11, shadowOffset = 2, spread = 4;
+    const canvas = cv.canvas, scale = canvas.h / height;
+    const first = Math.floor((x - spread) * scale), last = Math.ceil((x + width + spread) * scale);
+    for (let row = (top + shadowOffset - spread) * scale;
+        row < (top + faceHeight + shadowOffset + spread) * scale; row++) {
+        const y = (row + 0.5) / scale - top - faceHeight / 2;
+        const dy = Math.abs(y) - faceHeight / 2 + radius;
+        const shadowY = Math.abs(y - shadowOffset) - faceHeight / 2 + radius;
+        for (let col = first; col < last; col++) {
+            const dx = Math.abs((col + 0.5) / scale - x - width / 2) - width / 2 + radius;
+            const faceDistance = roundedDistance(dx, dy) - radius;
+            if (faceDistance < 0) continue;
+            const shadowDistance = roundedDistance(dx, shadowY) - radius;
+            const t = Math.max(0, Math.min(1, 1 - shadowDistance / spread));
+            const edge = Math.min(1, faceDistance * scale);
+            canvas.d[(row * canvas.w + col) * 4 + 3] = Math.round(105 * edge * t * t * (3 - 2 * t));
         }
     }
+    cv.roundRect(x, top, width, faceHeight, radius, CARD_FILL);
 }
 
 function glassFrame(part, value, previous) {
     const text = (value.demo ? 'Demo  ' : '') + etaLabel(value);
     const style = { align: 'center', font: 'bold', literal: true };
-    const padding = 13, margin = 2, font = 18, height = part.h;
+    const padding = 13, margin = CARD_MARGIN, font = 18, height = part.h;
     const measure = new ScaledCanvas(1, 1, GLASS_SCALE);
     const natural = measure.textWidth(text, font, style), room = part.w - 2 * (padding + margin);
     const size = Math.min(font, font * room / Math.max(1, natural));
     const card = Math.min(part.w - 2 * margin, Math.ceil(measure.textWidth(text, size, style)) + 2 * padding);
     const width = Math.max(card + 2 * margin, previous || 0);
     const cv = new ScaledCanvas(width, height, GLASS_SCALE).clear();
-    drawSoftBackdrop(cv.canvas, (width - card) / 2, card, height);
+    drawClusterCard(cv, (width - card) / 2, card, height, 11);
     cv.text(text, width / 2, height / 2 + size * 0.34 + 0.7, size, [12, 12, 12, 143], style);
     cv.text(text, width / 2, height / 2 + size * 0.34, size, '#ffffff', style);
     const pixels = cv.canvas.d;

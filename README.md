@@ -15,7 +15,7 @@ The menus default to English. Select **Language → Romana** for Romanian withou
 | App | Current version | Function |
 | --- | --- | --- |
 | **Metil's HUD Apps** | 0.2.3 | Turn signals, native CarPlay ETA, and now-playing information |
-| **Waze ETA iOS** | 0.3.5 | Waze ETA, turns, roundabout exit number, lane guidance and forks |
+| **Waze ETA iOS** | 0.3.6 | Waze ETA, turns, roundabout exit number, lane guidance and forks |
 | **Speed Limit Romania** | 1.3.2 | Offline speed limits, cameras and priority signs, with an optional Waze limit |
 | **Seat Comfort** | 0.1.2 | Automatic front-seat heating at a cold start |
 | **Waze CarPlay Reader** | 0.3.1 | Shared capture tool for Waze ETA iOS and the optional Speed Limit Romania source |
@@ -24,7 +24,7 @@ The menus default to English. Select **Language → Romana** for Romanian withou
 
 Enable arrival and maneuvers independently for the windshield HUD and the cluster map. Keep an active Waze route visible on the centre CarPlay screen. The reader samples approximately every four seconds and supports the tested 8:3 CarPlay layout. Use the built-in demos to position ETA, left and right turns, roundabouts, lanes and forks independently of Waze.
 
-Cluster-map ETA has a translucent background with soft rounded edges. It fits the text and dims the map beneath it. It renders to a 1080 × 192 texture at 4× scale and sends only the changed region when the label updates. The HUD and maneuver overlays use 3× textures. The reader schedules captures only while an app requests data and the CarPlay capture gate permits it.
+Cluster-map ETA and maneuver cards use nearly opaque charcoal backgrounds with rounded corners and a soft drop shadow. Their backgrounds fit the guidance and let a little of the map colour show through. ETA renders to a 1080 × 192 texture at 4× scale and sends only the changed region when the label updates. The HUD and maneuver overlays use 3× textures. The reader schedules captures only while an app requests data and the CarPlay capture gate permits it.
 
 - For a fork, the recommended branch is white and the other branch is muted. A roundabout shows the exit number inside a small circle next to the distance.
 - Experimental lane recognition looks for the lane row inside the full-screen Waze maneuver card. It can distinguish a recommended turn within a lane that also allows going straight. Unrecognized rows and rows without a distinguishable recommendation are omitted.

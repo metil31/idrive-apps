@@ -360,25 +360,21 @@ async function testHud() {
     assert.strictEqual(targets[1].ih, targets[1].h * 4);
     const firstEta = uploads.find(frame => frame.ref === 2);
     assert.ok(firstEta.regions && firstEta.bytes < targets[1].iw * targets[1].ih * 4);
-    const glass = frames.get(2);
-    const pixel = (x, y) => Array.from(glass.subarray((y * targets[1].iw + x) * 4, (y * targets[1].iw + x) * 4 + 4));
-    assert.deepStrictEqual(pixel(etaEdges.left + 32, 75), [0, 0, 0, 74], 'the bar dims the map with a neutral translucent fill');
-    for (const y of [9, 12, 14, 180, 182]) {
-        const [r, g, b, alpha] = pixel(targets[1].iw / 2, y);
-        assert.ok(r === 0 && g === 0 && b === 0 && alpha <= 74, 'the bar has no contrasting outline or highlight');
+    for (const ref of [2, 3]) {
+        const { iw, ih } = targets[ref - 1], scale = ih / 48, frame = frames.get(ref);
+        const pixel = (x, y) => Array.from(frame.subarray((y * iw + x) * 4, (y * iw + x) * 4 + 4));
+        const x = iw / 2;
+        assert.deepStrictEqual(pixel(x, 8 * scale), [52, 52, 52, 224], 'the card is neutral grey and nearly solid');
+        const shadow = [42, 44, 46, 47].map(y => pixel(x, y * scale));
+        assert.ok(shadow.every(([r, g, b]) => r === 0 && g === 0 && b === 0), 'the card casts a neutral shadow');
+        assert.ok(shadow[0][3] > shadow[1][3] && shadow[1][3] > shadow[2][3] && shadow[3][3] === 0, 'the shadow fades below the card');
+        assert.ok(frame.some((value, i) => i % 4 === 0 && value === 255 && frame[i + 3] === 255), 'the guidance stays opaque');
     }
-    const edgeAlpha = [8, 14, 22, 30].map(y => pixel(targets[1].iw / 2, y)[3]);
-    assert.strictEqual(edgeAlpha[0], 0);
-    assert.strictEqual(edgeAlpha[3], 74);
-    assert.ok(edgeAlpha.every((alpha, i) => !i || alpha > edgeAlpha[i - 1]), 'the background fades in over five pixels');
-    assert.ok(glass.some((value, i) => i % 4 === 0 && value === 255 && glass[i + 3] === 255), 'the white text stays opaque');
     assert.ok(etaEdges.width < targets[1].iw - 40 && turnEdges.width < targets[2].iw - 40,
         'short labels leave no painted background in the unused side space');
-    const turnTop = edges(3, 6);
-    const at = (turnCenterRow * targets[2].iw + turnEdges.left + 9) * 4;
-    assert.deepStrictEqual(Array.from(frames.get(3).subarray(at, at + 4)), [24, 27, 31, 207]);
-    assert.ok(turnTop.left > turnEdges.left && turnTop.left - turnEdges.left < 20 && turnTop.right < turnEdges.right,
-        'maneuvers retain their gently rounded style');
+    const turnTop = edges(3, 4 * 3);
+    assert.ok(turnTop.left > turnEdges.left && turnTop.right < turnEdges.right,
+        'the maneuver card is narrower at the top because its corners are rounded');
     const activePayload = payload;
     payload = {
         eta: { ...payload.eta, duration: '2 h 27 min', distance: '125 km' },
