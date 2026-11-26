@@ -6,7 +6,8 @@ const mgu = require('./kit/mgu');
 const { conditionOf } = require('./kit/car');
 const { Diag, replyTo } = require('./kit/diag');
 const { createBdc, CONFIRM_GAP_MS } = require('./bdc');
-const { createService } = require('./service');
+const { createService, MESSAGES } = require('./service');
+const { menuLanguage } = require('./kit/menu-language');
 
 function background(ctx) {
     const { app, settings, signals, log, dataDir } = ctx;
@@ -43,7 +44,7 @@ function background(ctx) {
     const readSpeed = (value) => service.observeSpeed(value && value.speedVehicleCentreOfGravity);
     watch('de.bmw.infotainment.vehicle.Vehicle2', 'statusCarSpeed2', readSpeed)
         .then((watcher) => { speedWatch = watcher; });
-    settings.onChange(() => service.cancel());
+    settings.onChange(key => { if (key !== 'menuLanguage') service.cancel(); });
     const timer = setInterval(() => {
         if (service.needsSpeed() && speedWatch && speedWatch.proxy && !readingSpeed) {
             readingSpeed = true;
@@ -62,7 +63,10 @@ function background(ctx) {
     return service;
 }
 
-function start({ app, ui, settings, background }) {
+function start(ctx) {
+    const { app, ui, settings, background } = ctx;
+    const language = menuLanguage(ctx), { t } = language;
+    const status = value => MESSAGES[value] ? t(...MESSAGES[value]) : value;
     const switches = { SC_AUTO: 'auto', SC_DRIVER: 'driver', SC_PASSENGER: 'passenger' };
     const slider = ui.comp('SC_THRESHOLD');
     const shown = {};
@@ -86,22 +90,23 @@ function start({ app, ui, settings, background }) {
     });
     function render() {
         if (!ui.isVisible('MAIN')) return;
+        if (language.render()) Object.keys(shown).forEach(key => delete shown[key]);
         for (const id of Object.keys(switches)) {
             show(id, settings.get(switches[id]) === true, (v) => ui.checked(id, v));
         }
         show('level', settings.get('level') - 1, (v) => ui.selected('SC_LEVEL', v));
         const threshold = settings.get('threshold');
-        show('threshold', threshold, (v) => ui.cells('SC_THRESHOLD', 0, { TextDescription: 'Sub ' + v + ' °C' }));
+        show('threshold', threshold, (v) => ui.cells('SC_THRESHOLD', 0, { TextDescription: t('Below ', 'Sub ') + v + ' °C' }));
         show('step', threshold + 5, (v) => {
             if (slider && slider.setStepValue) slider.setStepValue(v);
             else ui.cells('SC_THRESHOLD', 0, { Value: v });
         });
-        const state = background ? background.snapshot() : { outdoor: null, result: 'Serviciu indisponibil' };
+        const state = background ? background.snapshot() : { outdoor: null, result: t('Service unavailable', 'Serviciu indisponibil') };
         const lines = {
-            SC_TEMP: 'Exterior · ' + (state.outdoor === null ? 'indisponibil' : state.outdoor + ' °C'),
-            SC_RESULT: state.result,
-            SC_LIVE_DRIVER: 'Șofer · ' + (state.driver || '—'),
-            SC_LIVE_PASSENGER: 'Pasager · ' + (state.passenger || '—'),
+            SC_TEMP: t('Outside · ', 'Exterior · ') + (state.outdoor === null ? t('unavailable', 'indisponibil') : state.outdoor + ' °C'),
+            SC_RESULT: status(state.result),
+            SC_LIVE_DRIVER: t('Driver · ', 'Sofer · ') + (status(state.driver) || '—'),
+            SC_LIVE_PASSENGER: t('Passenger · ', 'Pasager · ') + (status(state.passenger) || '—'),
         };
         for (const id of Object.keys(lines)) show(id, lines[id], (v) => ui.text(id, v));
     }

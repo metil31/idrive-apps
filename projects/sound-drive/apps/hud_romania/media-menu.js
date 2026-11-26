@@ -1,13 +1,17 @@
 'use strict';
 
-const { PLACEMENT, position } = require('./view');
+const { PLACEMENT, position } = require('./media-view');
 const OUTPUTS = ['hud', 'cluster', 'both'];
 const SECTIONS = { hud: 'MR_HUD', cluster: 'MR_CL' };
 const MOVE = { LEFT: ['x', -10], RIGHT: ['x', 10], UP: ['y', -10], DOWN: ['y', 10] };
 
 function wireMenu(ctx) {
-    const { ui, settings, background, app } = ctx;
+    const { ui, settings, background, app, language, preview } = ctx;
+    const { t } = language;
     const shown = new Map();
+    for (const [id, sample] of [['MR_HUD_DEMO', 'mediaHud'], ['MR_CL_DEMO', 'mediaCluster']]) {
+        ui.onClick(id, () => { if (preview) preview.toggle(sample); render(); });
+    }
     const parts = Object.keys(SECTIONS).map((target) => {
         const row = SECTIONS[target], config = PLACEMENT[target], sliderId = row + '_SIZE';
         const steps = settings.item(config.size).steps;
@@ -18,8 +22,8 @@ function wireMenu(ctx) {
         shown.set(key, value);
         apply(value);
     };
-    const active = (part) => settings.get('enabled') &&
-        (settings.get('show') === 'both' || settings.get('show') === part.target);
+    const active = (part) => preview && preview.selected() === (part.target === 'hud' ? 'mediaHud' : 'mediaCluster') ||
+        settings.get('enabled') && (settings.get('show') === 'both' || settings.get('show') === part.target);
     const set = (key, value) => { if (settings.get(key) !== value) settings.set(key, value); };
     const clear = () => { shown.clear(); };
 
@@ -30,8 +34,8 @@ function wireMenu(ctx) {
         }
         write('show', Math.max(0, OUTPUTS.indexOf(settings.get('show'))), (value) => ui.selected('MR_SHOW', value));
         const track = background && background.track();
-        write('status', background ? background.status() : 'Se pornește aplicația', (value) => ui.text('MR_STATUS', value));
-        write('track', track ? [track.title, track.artist].filter(Boolean).join(' · ').slice(0, 110) : 'În redare: —',
+        write('status', background ? background.status(t) : t('Starting', 'Pornire aplicatie'), (value) => ui.text('MR_STATUS', value));
+        write('track', track ? [track.title, track.artist].filter(Boolean).join(' · ').slice(0, 110) : t('Now playing: —', 'In redare: —'),
             (value) => ui.text('MR_TRACK', value));
 
         for (const part of parts) {
@@ -40,13 +44,13 @@ function wireMenu(ctx) {
             const size = Number(settings.get(config.size)) || 100;
             let step = 0;
             steps.forEach((value, index) => { if (Math.abs(value - size) < Math.abs(steps[step] - size)) step = index; });
-            write(row + ':size', size, (value) =>
-                ui.cells(sliderId, 0, { TextDescription: 'Mărime: ' + value + '%' }));
+            write(row + ':size', t('Size: ', 'Marime: ') + size + '%', (value) =>
+                ui.cells(sliderId, 0, { TextDescription: value }));
             write(row + ':step', step, (value) => {
                 if (slider && slider.setStepValue) slider.setStepValue(value);
                 else ui.cells(sliderId, 0, { Value: value });
             });
-            write(row + ':position', 'Poziție: X ' + (x > 0 ? '+' : '') + x + ' px · Y ' + y + ' px',
+            write(row + ':position', t('Position: X ', 'Pozitie: X ') + (x > 0 ? '+' : '') + x + ' px · Y ' + y + ' px',
                 (value) => ui.text(row + '_POS', value));
             for (const direction of Object.keys(MOVE)) {
                 const [name, delta] = MOVE[direction], axis = config[name];

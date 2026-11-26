@@ -1,9 +1,9 @@
 {
   "id": "waze-eta-reader",
   "kind": "tool",
-  "version": "0.2.1",
-  "title": "Cititor Waze ETA",
-  "description": "Citire locală a sosirii și virajelor din Waze.",
+  "version": "0.2.2",
+  "title": "Waze CarPlay Reader",
+  "description": "Local reader for Waze ETA and maneuvers on iOS CarPlay.",
   "mguHmi": ["ID7"],
   "uninstallable": true,
   "files": [

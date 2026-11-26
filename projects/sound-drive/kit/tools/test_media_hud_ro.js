@@ -4,10 +4,10 @@ const assert = require('assert');
 const EventEmitter = require('events');
 const { Canvas, ScaledCanvas } = require('../runtime/canvas');
 const { conditionOf } = require('../runtime/car');
-const { decodeTrack } = require('../../apps/media_hud_ro/media');
-const { startService } = require('../../apps/media_hud_ro/service');
-const { fitText, drawTrack } = require('../../apps/media_hud_ro/view');
-const { AlbumArt } = require('../../apps/media_hud_ro/album-art');
+const { decodeTrack } = require('../../apps/hud_romania/media');
+const { startService } = require('../../apps/hud_romania/media-service');
+const { fitText, drawTrack } = require('../../apps/hud_romania/media-view');
+const { AlbumArt } = require('../../apps/hud_romania/album-art');
 
 const song = { title: 'Și dacă', artist: 'Țapinarii' };
 const metadata = { currentItemMetadata: [

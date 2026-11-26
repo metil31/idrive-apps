@@ -110,7 +110,7 @@ function pages(text, size, head) {
 /** The code q (qr.encode) as big as the picture allows, black on white with its quiet zone, and the help on the right.
  * info: { page, pages, size (label) } */
 function drawCode(c, q, info) {
-    const H = c.h;
+    const H = c.h, t = info.t || (en => en);
     c.clear('#000000');
     const n = q.size + 8, dev = Math.max(1, Math.floor((H - 16) / n)), side = dev * n;
     const ox = 40, oy = Math.round((H - side) / 2);
@@ -125,10 +125,13 @@ function drawCode(c, q, info) {
         }
     }
     const tx = ox + side + 60, o = { literal: true };
-    c.text('Speed Limit log', tx, 90, 40, '#ffffff', Object.assign({ font: 'bold' }, o));
-    c.text('Code ' + info.page + ' of ' + info.pages + '   (size: ' + info.size + ')', tx, 145, 30, '#ffffff', o);
-    ['Take a photo of every code and send the', 'photos with your report (GitHub issue).', 'Code 1 has the newest lines.', '',
-        'Hard to scan? Size: Large. More lines', 'in each code? Size: Small (hold steady).']
+    c.text(t('Speed Limit log', 'Jurnal Speed Limit'), tx, 90, 40, '#ffffff', Object.assign({ font: 'bold' }, o));
+    c.text(t('Code ', 'Cod ') + info.page + t(' of ', ' din ') + info.pages + t('   (size: ', '   (marime: ') + info.size + ')', tx, 145, 30, '#ffffff', o);
+    [t('Photograph each code and send the photos', 'Fotografiaza fiecare cod si trimite pozele'),
+        t('with your report (GitHub issue).', 'cu raportul tau (GitHub issue).'),
+        t('Code 1 has the newest lines.', 'Codul 1 are cele mai noi linii.'), '',
+        t('Hard to scan? Use Large.', 'Greu de scanat? Alege Mare.'),
+        t('More lines per code? Use Small.', 'Mai multe linii per cod? Alege Mica.')]
         .forEach((h, i) => c.text(h, tx, 215 + i * 38, 26, '#b4bcc8', o));
 }
 

@@ -2,7 +2,7 @@
 
 const assert = require('assert');
 const EventEmitter = require('events');
-const { Canvas } = require('../runtime/canvas');
+const { ScaledCanvas } = require('../runtime/canvas');
 const { conditionOf } = require('../runtime/car');
 const { HudState, indicator, decodeWaypoints, routeLabel, ETA_MS, INDICATOR_MS } = require('../../apps/hud_romania/hud-state');
 const { startService } = require('../../apps/hud_romania/service');
@@ -17,10 +17,11 @@ const settings = { indicators: true, eta: true, position: 'low', brightness: 'no
 const cfg = { get: (key) => settings[key], onChange: (fn) => { cfg.changed = fn; } };
 const waypoints = { value: { waypoints: [{ travelTime: 120 }, trip] } };
 const route = decodeWaypoints(waypoints);
-assert.strictEqual(routeLabel(route), 'Sosire 18:42 · 24 min · 19 km');
+assert.strictEqual(routeLabel(route), 'Arrival 18:42 · 24 min · 19 km');
 assert.strictEqual(decodeWaypoints([{ travelTime: 0, formattedDistance: { rawDistance: 0 }, estimatedArrivalTime: trip.estimatedArrivalTime }]), null);
 assert.strictEqual(decodeWaypoints([{ travelTime: 4294967295, estimatedArrivalTime: { time: { hour: 24, minute: 1 } } }]), null);
-assert.strictEqual(routeLabel(decodeWaypoints([{ travelTime: 10, formattedDistance: { distance: '1,4', unit: 'KM' } }])), '1 min · 1,4 km');
+assert.strictEqual(routeLabel(decodeWaypoints([{ travelTime: 10, formattedDistance: { distance: '1,4', unit: 'KM' } }])), '1 min · 1.4 km');
+assert.strictEqual(routeLabel(route, true), 'Sosire 18:42 · 24 min · 19 km');
 assert.strictEqual(indicator({ controlIndicateDirection: 'TIPP_BLINKEN_LINKS_EIN' }), 'left');
 assert.strictEqual(indicator({ value: { activeFunctionIndicateDirection: '8' } }), 'right');
 assert.strictEqual(indicator({ controlIndicateDirection: 1, activeFunctionIndicateDirection: 'WARNBLINKEN_MANUELL' }), 'both');
@@ -33,7 +34,7 @@ state.setFlag('projectedGuidanceMetadataAvailable', true);
 state.setWaypoints(waypoints, 1);
 assert.strictEqual(state.view(2, cfg).eta, '');
 state.setReady(true);
-assert.strictEqual(state.view(2, cfg).eta, 'Sosire 18:42 · 24 min · 19 km');
+assert.strictEqual(state.view(2, cfg).eta, 'Arrival 18:42 · 24 min · 19 km');
 assert.strictEqual(state.view(0, cfg).eta, '');
 assert.strictEqual(state.view(1 + ETA_MS, cfg).eta, '');
 state.setFlag('projectedGuidanceMetadataAvailable', false);
@@ -42,7 +43,7 @@ state.setProvider('NONE');
 state.setWaypoints(waypoints, 3);
 assert.strictEqual(state.view(3, cfg).eta, '', 'active alone must not show old estimates');
 state.setWaypoints([{ formattedDistance: { rawDistance: 0 }, travelTime: 0 }], 4);
-assert.strictEqual(state.etaStatus(4), 'CarPlay nu a trimis valori pentru ETA');
+assert.strictEqual(state.etaStatus(4), 'CarPlay sent no ETA values');
 state.setWaypoints(waypoints, 5);
 state.setFlag('projectedGuidanceMetadataAvailable', true);
 assert.strictEqual(state.view(5, cfg).eta, '', 'old waypoints must not reappear when the source returns');
@@ -50,16 +51,16 @@ state.setFlag('projectedGuidanceMetadataAvailable', false);
 const projected = new HudState();
 projected.setReady(true);
 projected.setWaypoints({ waypoints: { value: [{ value: trip }] } }, 10);
-assert.strictEqual(projected.etaStatus(10), 'Sursa traseului CarPlay nu este confirmată');
+assert.strictEqual(projected.etaStatus(10), 'CarPlay route source unconfirmed');
 projected.setProvider({ guidingProvider: { name: 'CAR_PLAY' } });
 assert.strictEqual(projected.view(10, cfg).eta, '');
 projected.setWaypoints(waypoints, 10);
 assert.strictEqual(projected.view(10, cfg).eta, routeLabel(route));
-assert.strictEqual(projected.etaStatus(10 + ETA_MS), 'Datele de traseu nu mai sunt actuale');
+assert.strictEqual(projected.etaStatus(10 + ETA_MS), 'Route data expired');
 projected.setProvider({ guidingProvider: 'ANDROID_AUTO' });
 assert.strictEqual(projected.view(10, cfg).eta, '');
 projected.setWaypoints([], 12);
-assert.strictEqual(projected.etaStatus(12), 'CarPlay a trimis o listă de destinații goală');
+assert.strictEqual(projected.etaStatus(12), 'CarPlay sent an empty destination list');
 state.setIndicator({ controlIndicateDirection: 3 }, 30);
 assert.deepStrictEqual(state.view(30, cfg), { direction: 'left', bright: true, eta: '' });
 assert.strictEqual(state.view(430, cfg).bright, false);
@@ -79,7 +80,7 @@ let clock = 1000;
 const service = startService({
     signals: { watch: (iface, instance, cb) => { watches.set(iface.split('.').pop(), cb); return Promise.resolve({ shutdown: () => Promise.resolve() }); } },
     settings: cfg, log: { warn: (msg) => { throw new Error(msg); } }, app: new EventEmitter(),
-}, { Canvas, conditionOf, makeClient: () => new Renderer(), now: () => clock });
+}, { ScaledCanvas, conditionOf, makeClient: () => new Renderer(), now: () => clock });
 try {
     watches.get('Light').StatusFunctionsIndicators({ controlIndicateDirection: 8 });
     assert.strictEqual(clients.length, 0, 'no layer before the vehicle reports drive-ready');
@@ -91,9 +92,11 @@ try {
     assert.strictEqual(spec.target, 'hud');
     assert.strictEqual(spec.klass, 'overlay');
     assert.strictEqual(spec.yield, 1);
+    assert.strictEqual(spec.iw, spec.w * 2);
+    assert.strictEqual(spec.ih, spec.h * 2);
     assert.strictEqual(cr.frames[0].bytes.length, spec.iw * spec.ih * 4);
     for (const frame of cr.frames) {
-        assert.strictEqual(frame.bytes[(15 * spec.iw + 20) * 4 + 3], 255, 'arrow centre has a solid fill');
+        assert.strictEqual(frame.bytes[(30 * spec.iw + 40) * 4 + 3], 255, 'arrow centre has a solid fill');
     }
     watches.get('CarPlayManager').projectedGuidanceActive({ projectedGuidanceActive: true });
     watches.get('CarPlayManager').projectedGuidanceMetadataAvailable(true);
@@ -128,14 +131,17 @@ try {
 console.log('HUD România: CarPlay ETA, semnalizări, fundal și renderer verificate');
 
 const { wireMenu } = require('../../apps/hud_romania/menu');
+const { menuLanguage } = require('../runtime/menu-language');
+const appSpec = require('../../apps/hud_romania/app.json');
 const actions = {}, shown = {};
 const config = { indicators: true, eta: true, indicatorX: 20, indicatorY: 286, indicatorGap: 362, position: 'low', brightness: 'normal' };
 const options = { get: key => config[key], set(key, value) { config[key] = value; this.render(); }, onChange(fn) { this.render = fn; } };
 const menuApp = new EventEmitter();
-const ui = { isVisible: () => true, onVisible() {}, onClick(id, fn) { actions[id] = fn; } };
+const ui = { comp() { return null; }, cells() {}, isVisible: () => true, onVisible() {}, onClick(id, fn) { actions[id] = fn; } };
 for (const method of ['checked', 'text', 'enabled', 'selected']) ui[method] = (id, value) => { shown[id] = value; };
 try {
-    wireMenu({ app: menuApp, ui, settings: options });
+    const language = menuLanguage({ ui, settings: options, spec: appSpec });
+    wireMenu({ app: menuApp, ui, settings: options, language });
     assert.ok(shown.HR_POSITION.includes('X 20'));
     actions.HR_RIGHT(); actions.HR_RIGHT(); actions.HR_UP(); actions.HR_NARROW();
     assert.deepStrictEqual([config.indicatorX, config.indicatorY, config.indicatorGap], [40, 276, 352]);
@@ -144,4 +150,9 @@ try {
     actions.HR_IND(); actions.HR_RIGHT();
     assert.strictEqual(config.indicatorX, 0);
     assert.strictEqual(shown.HR_RIGHT, false);
+    actions.APP_LANGUAGE({ row: 1 });
+    assert.match(shown.HR_POSITION, /^Pozitie/);
+    assert.strictEqual(shown.HR_IND_HEAD, 'Semnalizari pe HUD');
+    actions.APP_LANGUAGE({ row: 0 });
+    assert.match(shown.HR_POSITION, /^Position/);
 } finally { menuApp.emit('shutdown'); }

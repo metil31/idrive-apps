@@ -1,5 +1,6 @@
 'use strict';
 
+const TEXTURE_SCALE = 2;
 const WIDTH = 410, HEIGHT = 64;
 const Y = { high: 122, middle: 186, low: 252 };
 const ARROW_W = 40, ARROW_H = 30;
@@ -16,9 +17,9 @@ function boundedSetting(settings, key, fallback, min, max) {
 }
 
 class HudOutput {
-    constructor(makeClient, Canvas) {
+    constructor(makeClient, ScaledCanvas) {
         this.makeClient = makeClient;
-        this.Canvas = Canvas;
+        this.ScaledCanvas = ScaledCanvas;
         this.client = null;
         this.layers = {};
         this.ready = false;
@@ -64,7 +65,7 @@ class HudOutput {
         let layer = this.layers[name];
         if (!layer) {
             const ref = this.client.image({ target: 'hud', klass: 'overlay', z: name === 'eta' ? 12 : 13,
-                x, y, w, h, iw: w, ih: h, fps: 4, yield: 1 });
+                x, y, w, h, iw: w * TEXTURE_SCALE, ih: h * TEXTURE_SCALE, sampling: 'bilinear', fps: 4, yield: 1 });
             if (!ref) return;
             layer = this.layers[name] = { ref, x, y, key: null };
         } else if (x !== layer.x || y !== layer.y) {
@@ -72,9 +73,10 @@ class HudOutput {
             Object.assign(layer, { x, y });
         }
         if (key === layer.key) return;
-        const cv = new this.Canvas(w, h).clear();
+        const cv = new this.ScaledCanvas(w, h, TEXTURE_SCALE).clear();
         draw(cv);
-        const bytes = Buffer.from(cv.d.buffer, cv.d.byteOffset, cv.d.byteLength);
+        const pixels = cv.canvas.d;
+        const bytes = Buffer.from(pixels.buffer, pixels.byteOffset, pixels.byteLength);
         if (this.client.pixels(layer.ref, null, bytes)) layer.key = key;
     }
 

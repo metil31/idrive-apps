@@ -66,6 +66,14 @@ reader.start();
 reader.result(token, synthetic, null, { kind: 'left', distance: '60 m' });
 assert.strictEqual(reader.snapshot().eta.arrival, '09:48');
 assert.strictEqual(reader.snapshot().turn.distance, '60 m');
+reader.result(token, null, 'capture-failed');
+assert.strictEqual(reader.snapshot().turn.distance, '60 m', 'one failed capture does not blink');
+reader.result(token, synthetic, null, { ...left, distance: '50 m' });
+assert.strictEqual(reader.snapshot().turn.distance, '50 m', 'matching turn refreshes immediately');
+reader.result(token, synthetic, null, null);
+reader.result(token, null, 'no-eta');
+assert.strictEqual(reader.snapshot().turn, null, 'two misses retire the turn');
+
 const roundabout = { kind: 'roundabout', exit: 1, distance: '100 m' };
 reader.result(token, synthetic, null, roundabout);
 reader.result(token, synthetic, null, roundabout);
@@ -131,7 +139,7 @@ if (external.length) {
 
 async function testHud() {
     const draws = [], targets = [], commands = [], adjustments = [], dropped = [];
-    let appImpl, acceptCondition, payload, renderer, tick, changed;
+    let appImpl, acceptCondition, acceptSpeed, payload, renderer, tick, changed;
     const net = {
         createConnection(_path, onConnect) {
             const socket = new EventEmitter();
@@ -166,21 +174,26 @@ async function testHud() {
         close() {}
     }
     const deps = {
-        net, './kit/mgu': { run: (value) => { appImpl = value; } },
+        net, './kit/display-preview': require('../runtime/display-preview'),
+        './kit/menu-language': require('../runtime/menu-language'), './kit/mgu': { run: (value) => { appImpl = value; } },
         './kit/car': { conditionOf: (n) => n },
         './kit/canvas': { Canvas, ScaledCanvas },
         './map-area': require('../../apps/waze_eta_ro/map-area'),
         './cluster_render_client': { ClusterRender: Renderer },
     };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../apps/waze_eta_ro/main.js'), 'utf8'), {
-        require: (name) => deps[name], Buffer, setInterval: (fn) => { tick = fn; return 0; }, clearInterval() {},
+        require: (name) => deps[name], Buffer, setInterval: (fn) => { if (!tick) tick = fn; return 0; }, clearInterval() {},
     });
     const app = new EventEmitter();
     const config = { hud: true, cluster: true, turnCluster: true, turnHud: false };
-    const settings = { get: (key) => config[key], onChange(fn) { changed = fn; } };
+    const settings = { get: (key) => config[key], onChange(fn) {
+        const previous = changed;
+        changed = key => { if (previous) previous(key); fn(key); };
+    } };
     const signals = {
         async watch(_name, _instance, callbacks) {
-            acceptCondition = callbacks.VehicleCondition;
+            if (callbacks.VehicleCondition) acceptCondition = callbacks.VehicleCondition;
+            else acceptSpeed = callbacks.statusCarSpeed2;
             return { shutdown() {} };
         },
     };
@@ -211,6 +224,39 @@ async function testHud() {
     payload = { eta: payload.eta, turn: null };
     tick(); await flush();
     assert.ok(dropped.includes(5), 'turn disappears independently of ETA');
+    const menu = new Map(), shown = [];
+    let onVisible;
+    const spec = require('../../apps/waze_eta_ro/app.json');
+    const ui = {
+        onClick: (id, fn) => menu.set(id, fn), onVisible: fn => { onVisible = fn; },
+        isVisible: () => true, comp: () => null, checked() {}, text: (id, value) => shown.push([id, value]),
+        enabled() {}, selected() {}, cells() {},
+    };
+    settings.set = (key, value) => { config[key] = value; changed(key); };
+    appImpl.start({ ui, settings, spec, app, background: service });
+    menu.get('WE_TH_DEMO2')();
+    await flush();
+    assert.strictEqual(service.preview.current(), null);
+    acceptSpeed({ speedVehicleCentreOfGravity: 0 });
+    assert.strictEqual(service.preview.current().value.exit, 2);
+    const previewLayer = targets[targets.length - 1];
+    assert.strictEqual(previewLayer.target, 'hud');
+    assert.strictEqual(previewLayer.iw, previewLayer.w * 3);
+    assert.strictEqual(previewLayer.ih, previewLayer.h * 3);
+    assert.deepStrictEqual(draws.slice(-2), ['2', 'Demo 100 m']);
+    menu.get('WE_TH_RIGHT')();
+    assert.strictEqual(config.turnHudX, 425);
+    menu.get('APP_LANGUAGE')({ row: 1 });
+    assert.strictEqual(config.menuLanguage, 'ro');
+    assert.ok(shown.some(([id, value]) => id === 'WE_TH_HEAD' && value === 'Manevre pe HUD · experimental'));
+    menu.get('WE_TH_DEMO3')();
+    await flush();
+    acceptSpeed({ speedVehicleCentreOfGravity: 0 });
+    assert.strictEqual(service.preview.current().value.kind, 'lanes');
+    assert.strictEqual(draws.slice(-1)[0], 'Demo 700 m');
+    acceptSpeed({ speedVehicleCentreOfGravity: 1 });
+    assert.strictEqual(service.preview.current(), null);
+    onVisible('MAIN', false);
     acceptCondition({ statusConditionVehicle: 5 });
     await flush();
     assert.strictEqual(commands.slice(-1)[0], 'stop');

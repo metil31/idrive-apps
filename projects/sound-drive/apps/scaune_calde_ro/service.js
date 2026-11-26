@@ -15,6 +15,29 @@ const LABELS = {
     reported: 'Încălzire raportată activă',
 };
 
+const MESSAGES = {
+    'Anulat pentru această pornire': ['Canceled for this start', 'Anulat pentru aceasta pornire'],
+    'Traseu BDC neconfirmat': ['BDC route unconfirmed', 'Traseu BDC neconfirmat'],
+    'Încălzire deja activă': ['Heating already on', 'Incalzire deja activa'],
+    'Încălzire limitată de mașină': ['Heating restricted by vehicle', 'Incalzire limitata de masina'],
+    'Activare anulată': ['Activation canceled', 'Activare anulata'],
+    'Comandă neconfirmată': ['Command unconfirmed', 'Comanda neconfirmata'],
+    'Comandă acceptată, stare neconfirmată': ['Command accepted, state unconfirmed', 'Comanda acceptata, stare neconfirmata'],
+    'Încălzire raportată activă': ['Vehicle reported heating on', 'Incalzire raportata activa'],
+    'Așteaptă o pornire a mașinii': ['Waiting for a vehicle start', 'Asteapta o pornire a masinii'],
+    'Starea pornirii nu a putut fi salvată': ['Could not save startup state', 'Starea pornirii nu a putut fi salvata'],
+    'Pornire automată dezactivată': ['Automatic startup disabled', 'Pornire automata dezactivata'],
+    'Verifică setările de încălzire': ['Check heating settings', 'Verifica setarile de incalzire'],
+    'Așteaptă temperatura și viteza': ['Waiting for temperature and speed', 'Asteapta temperatura si viteza'],
+    'Fereastra de pornire a expirat': ['Startup window expired', 'Fereastra de pornire a expirat'],
+    'Temperatura nu este sub prag': ['Temperature is at or above the threshold', 'Temperatura nu este sub prag'],
+    'Verifică modulul scaunelor': ['Checking seat controller', 'Verifica modulul scaunelor'],
+    'Modul BDC compatibil nedetectat': ['Compatible BDC controller not detected', 'Modul BDC compatibil nedetectat'],
+    'Verifică modulul scaunului': ['Checking seat controller', 'Verifica modulul scaunului'],
+    'Verificare încheiată pentru această pornire': ['Checks complete for this start', 'Verificare incheiata pentru aceasta pornire'],
+    'Comunicarea cu modulul a eșuat': ['Controller communication failed', 'Comunicarea cu modulul a esuat'],
+};
+
 function exteriorTemperature(raw) {
     return Number.isInteger(raw) && raw >= 0 && raw <= 200 ? raw / 2 - 40 : null;
 }
@@ -141,4 +164,4 @@ function createService(settings, marker, makeBdc, now, checkGapMs) {
     };
 }
 
-module.exports = { createService, exteriorTemperature };
+module.exports = { createService, exteriorTemperature, MESSAGES };

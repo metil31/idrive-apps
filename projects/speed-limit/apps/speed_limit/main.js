@@ -22,6 +22,7 @@
 const path = require('path');
 const mgu = require('./kit/mgu');
 const Car = require('./kit/car');
+const { menuLanguage } = require('./kit/menu-language');
 const { LimitPack } = require('./limitpack');
 const { Matcher } = require('./matcher');
 const { Position, DemoDrive } = require('./position');
@@ -194,7 +195,7 @@ class Engine {
 
     previewJunction(kind) {
         const now = Date.now();
-        if (kind && (!DEMO[kind] || !this.canPreviewJunction(now))) return;
+        if (kind && (!(DEMO[kind] || kind === 'limit' || kind === 'camera') || !this.canPreviewJunction(now))) return;
         this.junctionDemo = kind ? { kind, metres: DEMO[kind], demo: true, until: now + JUNCTION_DEMO_MS } : null;
         if (this.active) this._show(now);
         this._changed();
@@ -202,8 +203,10 @@ class Engine {
 
     _show(now) {
         if (this.junctionDemo && (now >= this.junctionDemo.until || !this.canPreviewJunction(now))) this.junctionDemo = null;
-        this.outputs.setJunction(this.junctionDemo || this.junction, now);
-        this.outputs.update(this.view, now);
+        const sample = this.junctionDemo;
+        const numeric = sample && (sample.kind === 'limit' || sample.kind === 'camera');
+        this.outputs.setJunction(numeric ? null : sample || this.junction, now);
+        this.outputs.update(numeric ? { limit: 50, camera: sample.kind === 'camera' ? '350 m' : '', demo: true } : this.view, now);
     }
 
     /** The drive log: a line when the road, its limit or what is shown changes (a few a minute), for a report. */
@@ -342,40 +345,42 @@ const SIZES = {
     hud: [40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144],
     map: [70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180],
 };
-const STEP = { hud: 10, map: 20 };
+const STEP = { hud: 10, map: 10 };
 /** A section's place: the HUD's, or the cluster's (the phone map). */
 function placeOf(k) {
     const target = k === 'hud' ? 'hud' : 'map', T = TARGETS[target];
     return { target, show: k, size: T.size, x: T.x, y: T.y, def: T.def, sizes: SIZES[target], step: STEP[target], row: k === 'hud' ? 'SL_HUD' : 'SL_CL' };
 }
 
-function limitText(e) {
-    const r = e.res, v = e.view;
-    if (e.packError) return 'Speed limit: no map';
-    if (!e.active) return 'Speed limit: ' + (e.enabled() ? 'car off' : 'off');
-    const cam = v && v.camera ? ', speed camera in ' + v.camera : '';
-    if (v && v.limit) return 'Speed limit: ' + v.limit + ' km/h' + (v.inferred ? ' (default for this road)' : '') + cam;
-    if (r && r.variable) return 'Limită variabilă sau condiționată' + cam;
-    if (r && r.uncertain) return 'Limita diferă în funcție de sensul de mers' + cam;
-    if (cam) return 'Speed limit: not known' + cam;
-    if (!r || r.state === 'nofix') return 'Speed limit: waiting for a position';
-    if (r.state === 'outside') return 'Speed limit: outside the map';
-    return 'Speed limit: no road here';
+function limitText(e, t) {
+    const r = e.res, v = e.view, prefix = t('Speed limit: ', 'Limita de viteza: ');
+    if (e.packError) return prefix + t('no map', 'harta indisponibila');
+    if (!e.active) return prefix + (e.enabled() ? t('car off', 'masina oprita') : t('off', 'dezactivata'));
+    const cam = v && v.camera ? t(', speed camera in ', ', radar in ') + v.camera : '';
+    if (v && v.limit) return prefix + v.limit + ' km/h' + (v.inferred ? t(' (road default)', ' (implicita pentru drum)') : '') + cam;
+    if (r && r.variable) return t('Variable or conditional limit', 'Limita variabila sau conditionata') + cam;
+    if (r && r.uncertain) return t('Limit varies by direction', 'Limita difera in functie de sensul de mers') + cam;
+    if (cam) return prefix + t('unknown', 'necunoscuta') + cam;
+    if (!r || r.state === 'nofix') return prefix + t('waiting for position', 'asteapta pozitia');
+    if (r.state === 'outside') return prefix + t('outside the map', 'in afara hartii');
+    return prefix + t('no road here', 'niciun drum aici');
 }
 
-function signState(e, t) {
+function signState(e, surface, t) {
     const show = e.settings.get('show'), o = e.outputs.diag();
-    if (show !== t && show !== 'both') return 'Off';
-    if (!e.active) return e.enabled() ? 'Car off' : 'Off';
-    if (!o.connected) return 'Unavailable (no cluster-render)';
-    if (t === 'cluster' && !o.mapBusy && !o.panelMapBy) return 'Waiting for the phone map';
+    if (show !== surface && show !== 'both') return t('Off', 'Dezactivat');
+    if (!e.active) return e.enabled() ? t('Car off', 'Masina oprita') : t('Off', 'Dezactivat');
+    if (!o.connected) return t('Renderer unavailable', 'Renderer indisponibil');
+    if (surface === 'cluster' && !o.mapBusy && !o.panelMapBy) return t('Waiting for the cluster map', 'Asteapta harta din bord');
     const alert = e.junctionDemo || e.junction;
-    if (alert && (alert.demo || e.settings.get(t === 'cluster' ? 'junctionCluster' : 'junctionHud') === true)) {
-        return (alert.demo ? 'DEMO ' : '') + (alert.kind === 'stop' ? 'STOP' : 'Cedează trecerea') + ', ' + alert.metres + ' m';
+    if (alert && (alert.demo || e.settings.get(surface === 'cluster' ? 'junctionCluster' : 'junctionHud') === true)) {
+        if (alert.kind === 'limit') return t('Demo speed limit', 'Demo limita de viteza');
+        if (alert.kind === 'camera') return t('Demo speed camera', 'Demo radar');
+        return (alert.demo ? 'Demo ' : '') + (alert.kind === 'stop' ? 'STOP' : t('Give way', 'Cedeaza trecerea')) + ', ' + alert.metres + ' m';
     }
-    if (!e.view) return 'No limit to show';
-    const st = o[t === 'cluster' ? 'cluster' : 'hud'];
-    return /^shown/.test(st) ? 'Shown' : /^waiting|^parked/.test(st) ? 'Waiting (' + st + ')' : 'Waiting';
+    if (!e.view) return t('No limit to show', 'Limita indisponibila');
+    const state = o[surface];
+    return /^shown/.test(state) ? t('Shown', 'Afisat') : t('Waiting', 'In asteptare');
 }
 
 /** How far a sign may move from its default place and stay on its display (outputs.js TARGETS). */
@@ -384,46 +389,48 @@ function room(P, s) {
     return { x0: z / 2 - T.cx, x1: T.w - T.cx - z / 2, y0: z / 2 - T.cy, y1: T.h - T.cy - z / 2 };
 }
 
-function clusterRoute(e) {
+function clusterRoute(e, t) {
     const o = e.outputs.diag();
-    const show = e.settings.get('show');
-    if (show !== 'cluster' && show !== 'both') return 'Bord: afisare dezactivata';
-    if (!o.connected) return 'Bord: renderer deconectat';
-    if (o.mapHost) return 'Bord: harta mutata in ' + o.mapHost;
-    if (!o.statusAt) return 'Bord: se asteapta starea rendererului';
-    if (o.panelBy.length && o.mapBusy) return 'Bord: harta si panou separat (' + o.panelBy[0] + ')';
-    if (o.panelBy.length) return 'Bord: panou fara harta separata (' + o.panelBy[0] + ')';
-    return o.mapBusy ? 'Bord: harta in zona standard' : 'Bord: fara harta vizibila in renderer';
+    const show = e.settings.get('show'), prefix = t('Cluster: ', 'Bord: ');
+    if (show !== 'cluster' && show !== 'both') return prefix + t('display disabled', 'afisare dezactivata');
+    if (!o.connected) return prefix + t('renderer disconnected', 'renderer deconectat');
+    if (o.mapHost) return prefix + t('map hosted in ', 'harta mutata in ') + o.mapHost;
+    if (!o.statusAt) return prefix + t('waiting for renderer status', 'asteapta starea rendererului');
+    if (o.panelBy.length && o.mapBusy) return prefix + t('map and separate panel', 'harta si panou separat') + ' (' + o.panelBy[0] + ')';
+    if (o.panelBy.length) return prefix + t('panel without separate map', 'panou fara harta separata') + ' (' + o.panelBy[0] + ')';
+    return prefix + (o.mapBusy ? t('map in standard area', 'harta in zona standard') : t('no visible map', 'fara harta vizibila'));
 }
 
-function posText(x, y) {
-    if (!x && !y) return 'Position: Default';
-    const h = x > 0 ? x + ' px right' : x < 0 ? -x + ' px left' : '', v = y > 0 ? y + ' px down' : y < 0 ? -y + ' px up' : '';
-    return 'Position: ' + (h && v ? h + ', ' + v : h || v);
+function posText(x, y, t) {
+    if (!x && !y) return t('Position: Default', 'Pozitie: Implicita');
+    const h = x > 0 ? x + t(' px right', ' px dreapta') : x < 0 ? -x + t(' px left', ' px stanga') : '';
+    const v = y > 0 ? y + t(' px down', ' px jos') : y < 0 ? -y + t(' px up', ' px sus') : '';
+    return t('Position: ', 'Pozitie: ') + (h && v ? h + ', ' + v : h || v);
 }
 
-function roadText(e) {
-    const rd = e.road(), r = e.res;
-    if (!rd) return 'This road: ' + (e.active ? 'not on a road' : '-');
-    const lim = (l, inf) => (l ? l + ' km/h' + (inf ? ' (default, none on the map)' : '') : 'none');
-    const id = ', OSM way ' + rd.way;
-    if (r.corrected) return 'This road: your ' + r.limit + ' km/h (map: ' + lim(r.mapLimit, r.mapInferred) + ')' + id;
-    return 'This road: map ' + lim(r.limit, r.inferred) + id;
+function roadText(e, t) {
+    const rd = e.road(), r = e.res, label = t('This road: ', 'Drumul curent: ');
+    if (!rd) return label + (e.active ? t('no matched road', 'niciun drum identificat') : '-');
+    const lim = (l, inf) => l ? l + ' km/h' + (inf ? t(' (default, none on map)', ' (implicita, lipseste din harta)') : '') : t('none', 'niciuna');
+    const id = t(', OSM way ', ', segment OSM ') + rd.way;
+    if (r.corrected) return label + t('your limit ', 'limita ta ') + r.limit + ' km/h' + t(' (map: ', ' (harta: ') + lim(r.mapLimit, r.mapInferred) + ')' + id;
+    return label + t('map ', 'harta ') + lim(r.limit, r.inferred) + id;
 }
 
-function fixesText(e) {
+function fixesText(e, t) {
     const n = e.fixes.count;
-    return 'Corrections: ' + (n ? n + (n === 1 ? ' road' : ' roads') + ' (kept by updates)' : 'none');
+    return t('Corrections: ', 'Corectii: ') + (n ? n + (n === 1 ? t(' road', ' drum') : t(' roads', ' drumuri')) : t('none', 'niciuna'));
 }
 
-function mapText(e) {
-    return e.meta ? 'Map: OpenStreetMap ' + (e.meta.data || '') + ', (c) OpenStreetMap contributors, ODbL' : 'Map: -';
+function mapText(e, t) {
+    return t('Map: ', 'Harta: ') + (e.meta ? 'OpenStreetMap ' + (e.meta.data || '') + ', (c) OpenStreetMap contributors, ODbL' : '-');
 }
 
 mgu.run({
     background,
     async start(ctx) {
         const { ui, settings: s } = ctx;
+        const language = menuLanguage(ctx), { t } = language;
         const engine = ctx.background || await background(ctx);
         const done = {};
         const once = (key, value, fn) => { if (done[key] === value) return; done[key] = value; Promise.resolve().then(fn).catch(() => {}); };
@@ -440,11 +447,11 @@ mgu.run({
             const size = Number(s.get(P.size)) || P.def;
             let step = 0;
             P.sizes.forEach((v, i) => { if (Math.abs(v - size) < Math.abs(P.sizes[step] - size)) step = i; });
-            const st = (k === 'hud' ? 'HUD' : 'Cluster') + ' sign: ' + signState(engine, k);
+            const st = (k === 'hud' ? t('HUD sign: ', 'Semn HUD: ') : t('Cluster sign: ', 'Semn bord: ')) + signState(engine, k, t);
             once(R, st, () => ui.text(R, st));
-            once(R + ':sizeText', P.target + ':' + size, () => ui.cells(R + '_SIZE', 0, { TextDescription: 'Size: ' + size + ' px' }));
+            once(R + ':sizeText', P.target + ':' + size, () => ui.cells(R + '_SIZE', 0, { TextDescription: t('Size: ', 'Marime: ') + size + ' px' }));
             once(R + ':sizeStep', step, () => (slider && slider.setStepValue ? slider.setStepValue(step) : ui.cells(R + '_SIZE', 0, { Value: step })));
-            once(R + ':pos', P.target + ':' + x + ',' + y, () => ui.text(R + '_POS', posText(x, y)));
+            once(R + ':pos', P.target + ':' + x + ',' + y, () => ui.text(R + '_POS', posText(x, y, t)));
             ['_SIZE', '_LEFT', '_RIGHT', '_UP', '_DOWN'].concat(k === 'hud' ? ['_KEEP'] : []).forEach((n) => once('en:' + R + n, live, () => ui.enabled(R + n, live)));
             const back = live && (x !== 0 || y !== 0);
             once('en:' + R + '_DEFAULT', back, () => ui.enabled(R + '_DEFAULT', back));
@@ -452,9 +459,10 @@ mgu.run({
 
         function render() {
             if (!ui.isVisible('MAIN')) return;
+            if (language.render()) Object.keys(done).forEach(key => delete done[key]);
             const show = Math.max(0, SHOW.indexOf(s.get('show'))), over = Math.max(0, OVER.indexOf(String(s.get('overspeed'))));
             const nolim = Math.max(0, NOLIMIT.indexOf(s.get('noLimit')));
-            const lim = limitText(engine);
+            const lim = limitText(engine, t);
             once('show', show, () => ui.selected('SL_SHOW', show));
             once('over', over, () => ui.selected('SL_OVER', over));
             once('nolim', nolim, () => ui.selected('SL_NOLIMIT', nolim));
@@ -462,22 +470,22 @@ mgu.run({
             once('cams', cams, () => ui.selected('SL_CAMS', cams));
             once('limit', lim, () => ui.text('SL_LIMIT', lim));
             once('keep', !!s.get('hudKeep'), () => ui.checked('SL_HUD_KEEP', !!s.get('hudKeep')));
-            once('map', mapText(engine), () => ui.text('SL_MAP', mapText(engine)));
+            once('map', mapText(engine, t), () => ui.text('SL_MAP', mapText(engine, t)));
             // this road and its correction
             const rd = engine.road(), fx = rd ? engine.fixes.get(rd.way) : null;
             const cur = fx ? (rd.dir < 0 ? fx.b : fx.f) || fx.f || fx.b : 0, fi = Math.max(0, FIXV.indexOf(cur));
-            once('road', roadText(engine), () => ui.text('SL_ROAD', roadText(engine)));
+            once('road', roadText(engine, t), () => ui.text('SL_ROAD', roadText(engine, t)));
             once('fix', fi, () => ui.selected('SL_FIX', fi));
             once('en:fix', !!rd, () => ui.enabled('SL_FIX', !!rd));
             const n = engine.fixes.count, armed = n > 0 && Date.now() - clearArmed < 6000;
-            once('fixes', fixesText(engine), () => ui.text('SL_FIXES', fixesText(engine)));
+            once('fixes', fixesText(engine, t), () => ui.text('SL_FIXES', fixesText(engine, t)));
             once('en:undo', n > 0, () => ui.enabled('SL_FIX_UNDO', n > 0));
             once('en:clear', n > 0, () => ui.enabled('SL_FIX_CLEAR', n > 0));
-            const ct = armed ? 'Press again to clear all ' + n : 'Clear all corrections';
+            const ct = armed ? t('Press again to clear all ', 'Apasa din nou pentru a sterge toate cele ') + n : t('Clear all corrections', 'Sterge toate corectiile');
             once('clear', ct, () => ui.text('SL_FIX_CLEAR', ct));
             once('log', s.get('driveLog') !== false, () => ui.checked('SL_LOG', s.get('driveLog') !== false));
             renderPlace('cluster');
-            const route = clusterRoute(engine);
+            const route = clusterRoute(engine, t);
             once('clusterRoute', route, () => ui.text('SL_CL_ROUTE', route));
             renderPlace('hud');
             const preview = engine.canPreviewJunction(Date.now()), demo = !!engine.junctionDemo;
@@ -490,6 +498,8 @@ mgu.run({
             once('en:preview', preview, () => {
                 ui.enabled('SL_JUNCTION_YIELD', preview);
                 ui.enabled('SL_JUNCTION_STOP', preview);
+                ui.enabled('SL_DEMO_LIMIT', preview);
+                ui.enabled('SL_DEMO_CAMERA', preview);
             });
             once('en:demoEnd', demo, () => ui.enabled('SL_JUNCTION_END', demo));
         }
@@ -504,6 +514,8 @@ mgu.run({
         ui.onClick('SL_JUNCTION_CL', () => {
             if (on(placeOf('cluster'))) s.set('junctionCluster', s.get('junctionCluster') !== true);
         });
+        ui.onClick('SL_DEMO_LIMIT', () => engine.previewJunction('limit'));
+        ui.onClick('SL_DEMO_CAMERA', () => engine.previewJunction('camera'));
         ui.onClick('SL_JUNCTION_YIELD', () => engine.previewJunction('yield'));
         ui.onClick('SL_JUNCTION_STOP', () => engine.previewJunction('stop'));
         ui.onClick('SL_JUNCTION_END', () => engine.previewJunction(null));
@@ -553,18 +565,20 @@ mgu.run({
             Object.keys(done).forEach((k) => delete done[k]); render();
         });
         render();
-        qrScreen(ctx, engine);
+        qrScreen(ctx, engine, language);
     },
 });
 
 /* ---------- the QR screen: the app's log as codes to photograph (qrlog.js), for a report without SSH ----------
  * Made when it opens (the log read, compressed and cut into codes; a report line written first: version, map,
  * corrections, settings), a code drawn when it is shown; the picture is dropped when the screen closes. */
-function qrScreen(ctx, engine) {
+function qrScreen(ctx, engine, language) {
     const { ui, settings: s, log } = ctx;
+    const { t } = language;
     const Q = require('./qrlog'), qr = require('./qr'), { Canvas } = require('./kit/canvas');
     const file = path.join(ctx.dataDir || '.', APP_ID + '.log');
     const st = { size: 'medium', page: 0, list: null };
+    const sizeLabel = () => t(Q.SIZES[st.size].label, { large: 'Mare', medium: 'Medie', small: 'Mica' }[st.size]);
     const load = () => {
         st.list = Q.pages(Q.logText(file), st.size, APP_ID + ' ' + ((ctx.spec && ctx.spec.version) || ''));
         st.page = Math.min(st.page, st.list.length - 1);
@@ -572,15 +586,17 @@ function qrScreen(ctx, engine) {
     const show = () => {
         if (!st.list || !ui.isVisible('SL_QR')) return;
         const cv = new Canvas(1600, 520), q = qr.encode(st.list[st.page], { version: Q.SIZES[st.size].version, ecl: 'L' });
-        Q.drawCode(cv, q, { page: st.page + 1, pages: st.list.length, size: Q.SIZES[st.size].label });
+        Q.drawCode(cv, q, { page: st.page + 1, pages: st.list.length, size: sizeLabel(), t });
         ui.image('SL_QR_GFX', cv);
-        ui.text('SL_QR_TITLE', 'Log: code ' + (st.page + 1) + ' of ' + st.list.length);
+        ui.text('SL_QR_TITLE', t('Log: code ', 'Jurnal: cod ') + (st.page + 1) + t(' of ', ' din ') + st.list.length);
         ui.enabled('SL_QR_PREV', st.page > 0);
         ui.enabled('SL_QR_NEXT', st.page < st.list.length - 1);
     };
     ui.onVisible((name, v) => {
         if (name !== 'SL_QR') return;
         if (!v) { st.list = null; return; }
+        language.render('SL_QR');
+        ui.text('SL_QR_SIZE', t('Size: ', 'Marime: ') + sizeLabel());
         const m = engine.meta || {}, keys = ['show', 'overspeed', 'noLimit', 'cameras', 'untagged', 'hudKeep', 'hudSize', 'clusterSize'];
         log.info('report: ' + APP_ID + ' ' + ((ctx.spec && ctx.spec.version) || '') + ', map ' + (m.data || '-') + ' (' + (m.pieces || 0) + ' pieces), ' +
             engine.fixes.count + ' corrections, ' + (engine.active ? 'on' : 'idle') + ', ' + keys.map((k) => k + '=' + s.get(k)).join(' '));
@@ -591,5 +607,5 @@ function qrScreen(ctx, engine) {
     });
     ui.onClick('SL_QR_PREV', () => { if (st.list && st.page > 0) { st.page--; show(); } });
     ui.onClick('SL_QR_NEXT', () => { if (st.list && st.page < st.list.length - 1) { st.page++; show(); } });
-    ui.onClick('SL_QR_SIZE', () => { st.size = Q.ORDER[(Q.ORDER.indexOf(st.size) + 1) % Q.ORDER.length]; st.page = 0; load(); show(); ui.text('SL_QR_SIZE', 'Size: ' + Q.SIZES[st.size].label); });
+    ui.onClick('SL_QR_SIZE', () => { st.size = Q.ORDER[(Q.ORDER.indexOf(st.size) + 1) % Q.ORDER.length]; st.page = 0; load(); show(); ui.text('SL_QR_SIZE', t('Size: ', 'Marime: ') + sizeLabel()); });
 }

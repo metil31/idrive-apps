@@ -80,9 +80,9 @@ function decodeWaypoints(v) {
     return arrival || seconds || metres > 0 ? { arrival, seconds, metres } : null;
 }
 
-function routeLabel(route) {
+function routeLabel(route, ro = false) {
     const parts = [];
-    if (route.arrival) parts.push('Sosire ' + route.arrival);
+    if (route.arrival) parts.push((ro ? 'Sosire ' : 'Arrival ') + route.arrival);
     if (route.seconds !== null) {
         const minutes = Math.ceil(route.seconds / 60);
         parts.push(minutes < 60 ? minutes + ' min' :
@@ -90,7 +90,7 @@ function routeLabel(route) {
     }
     if (route.metres > 0) {
         parts.push(route.metres < 1000 ? Math.round(route.metres) + ' m' :
-            (route.metres / 1000).toFixed(route.metres < 10000 ? 1 : 0).replace('.', ',') + ' km');
+            (route.metres / 1000).toFixed(route.metres < 10000 ? 1 : 0).replace('.', ro ? ',' : '.') + ' km');
     }
     return parts.join(' · ');
 }
@@ -159,22 +159,22 @@ class HudState {
         return this.metadata === true && (this.active === true || this.provider === null);
     }
 
-    etaStatus(now) {
-        if (this.active === false) return 'Ghidajul CarPlay este inactiv';
-        if (this.routeAt === null) return 'Așteaptă date de traseu CarPlay';
-        if (this.waypointCount === 0) return 'CarPlay a trimis o listă de destinații goală';
-        if (this.waypointCount === null) return 'Format de traseu CarPlay nerecunoscut';
-        if (!this.hasEtaValues) return 'CarPlay nu a trimis valori pentru ETA';
-        if (!this.carplayRoute()) return 'Sursa traseului CarPlay nu este confirmată';
-        if (!this.route) return 'Așteaptă o estimare nouă pentru traseul activ';
-        if (!fresh(now, this.routeAt, ETA_MS)) return 'Datele de traseu nu mai sunt actuale';
+    etaStatus(now, t = en => en) {
+        if (this.active === false) return t('CarPlay guidance inactive', 'Ghidajul CarPlay este inactiv');
+        if (this.routeAt === null) return t('Waiting for CarPlay route data', 'Asteapta date de traseu CarPlay');
+        if (this.waypointCount === 0) return t('CarPlay sent an empty destination list', 'CarPlay a trimis o lista de destinatii goala');
+        if (this.waypointCount === null) return t('Unknown CarPlay route format', 'Format de traseu CarPlay nerecunoscut');
+        if (!this.hasEtaValues) return t('CarPlay sent no ETA values', 'CarPlay nu a trimis valori pentru ETA');
+        if (!this.carplayRoute()) return t('CarPlay route source unconfirmed', 'Sursa traseului CarPlay nu este confirmata');
+        if (!this.route) return t('Waiting for a new route estimate', 'Asteapta o estimare noua pentru traseul activ');
+        if (!fresh(now, this.routeAt, ETA_MS)) return t('Route data expired', 'Datele de traseu nu mai sunt actuale');
         return '';
     }
 
-    etaDiagnostics() {
-        const status = (v) => v === null ? '—' : v ? 'da' : 'nu';
-        return 'Ghidaj activ ' + status(this.active) + '  ·  Metadate ' + status(this.metadata) +
-            '  ·  Furnizor CarPlay ' + status(this.provider) + '  ·  Destinații ' +
+    etaDiagnostics(t = en => en) {
+        const status = (v) => v === null ? '—' : v ? t('yes', 'da') : t('no', 'nu');
+        return t('Guidance active ', 'Ghidaj activ ') + status(this.active) + t('  ·  Metadata ', '  ·  Metadate ') + status(this.metadata) +
+            t('  ·  CarPlay provider ', '  ·  Furnizor CarPlay ') + status(this.provider) + t('  ·  Destinations ', '  ·  Destinatii ') +
             (this.waypointCount === null ? '—' : this.waypointCount);
     }
 
@@ -191,7 +191,7 @@ class HudState {
             ? this.signal : 'off';
         const bright = ((now - this.blinkAt) % 800) < 400;
         const eta = this.awake && settings.get('eta') && this.carplayRoute() &&
-            this.route && fresh(now, this.routeAt, ETA_MS) ? routeLabel(this.route) : '';
+            this.route && fresh(now, this.routeAt, ETA_MS) ? routeLabel(this.route, settings.get('menuLanguage') === 'ro') : '';
         return { direction, bright, eta };
     }
 }

@@ -20,8 +20,8 @@
  * connection: cluster-render releases the surfaces at once.
  */
 const { ClusterRender } = require('./crclient');
-const { drawSign, signWidth } = require('./sign');
-const { junctionFrame, opacity } = require('./junction-sign');
+const { drawSign, signWidth, TEXTURE_SCALE } = require('./sign');
+const { junctionFrame } = require('./junction-sign');
 
 const TARGETS = {
     hud: { w: 800, h: 480, cx: 175, cy: 290, size: 'hudSize', x: 'hudX', y: 'hudY', def: 88 },
@@ -226,27 +226,28 @@ class Outputs {
             }
             // the pixels only when the picture changes (limit, size, default, over, the camera's distance step): not
             // on every tick
-            const key = [view.limit, w.size, !!view.inferred, !!view.over, cam, alpha].join(':');
+            const key = [view.limit, w.size, !!view.inferred, !!view.over, !!view.demo, cam].join(':');
             const sign = L && L.size === w.size && L.W === w.W && L.key === key ? null
-                : drawSign(view.limit, { size: w.size, inferred: view.inferred, over: view.over, camera: cam, pillLeft: !!TARGETS[t].pillLeft });
+                : drawSign(view.limit, { size: w.size, inferred: view.inferred, over: view.over, demo: view.demo, camera: cam, pillLeft: !!TARGETS[t].pillLeft });
             if (L && (L.size !== w.size || L.W !== w.W)) {
                 cr.drop(L.ref);
                 delete this.layerStates[L.ref];
                 L = null;
             }
             if (!L) {
-                const ref = cr.image(Object.assign({ target, class: 'overlay', z: 20, iw: w.W, ih: w.size,
+                const ref = cr.image(Object.assign({ target, class: 'overlay', z: 20, iw: w.W * TEXTURE_SCALE, ih: w.size * TEXTURE_SCALE, sampling: 'bilinear', opacity: alpha,
                     fps: t === 'hud' ? 20 : 4, visible: 1, contend: 0, yield: yld }, place));
-                L = this.layers[t] = { ref, target, size: w.size, W: w.W, place, key: '', visible: true, yld };
+                L = this.layers[t] = { ref, target, size: w.size, W: w.W, place, key: '', visible: true, yld, alpha };
             } else {
                 if (L.place.x !== place.x || L.place.y !== place.y || L.place.w !== place.w || L.place.h !== place.h) {
                     cr.set(L.ref, place);
                     L.place = place;
                 }
                 if (L.yld !== yld) { cr.set(L.ref, { yield: yld }); L.yld = yld; }
+                if (L.alpha !== alpha) { cr.set(L.ref, { opacity: alpha }); L.alpha = alpha; }
                 if (!L.visible) { cr.set(L.ref, { visible: 1 }); L.visible = true; }
             }
-            if (sign) { cr.pixels(L.ref, opacity(sign.px, alpha)); L.key = key; }
+            if (sign) { cr.pixels(L.ref, sign.px); L.key = key; }
         });
     }
 
@@ -272,7 +273,7 @@ class Outputs {
         }
         if (!place) return false;
         if (!layer) {
-            const ref = cr.image(Object.assign({ target, class: 'overlay', z: 21, iw: frame.w, ih: size,
+            const ref = cr.image(Object.assign({ target, class: 'overlay', z: 21, iw: frame.w * TEXTURE_SCALE, ih: size * TEXTURE_SCALE, sampling: 'bilinear', opacity: blend,
                 fps: 20, visible: 1, contend: 0, yield: yld }, place));
             layer = this.layers[key] = { ref, target, size, place, yld };
         } else if (layer.place.x !== place.x || layer.place.y !== place.y || layer.place.w !== place.w ||
@@ -281,7 +282,8 @@ class Outputs {
             layer.place = place;
             layer.yld = yld;
         }
-        if (layer.frameKey !== frameKey || layer.blend !== blend) cr.pixels(layer.ref, opacity(frame.px, blend));
+        if (layer.blend !== undefined && layer.blend !== blend) cr.set(layer.ref, { opacity: blend });
+        if (layer.frameKey !== frameKey) cr.pixels(layer.ref, frame.px);
         Object.assign(layer, { frame, frameKey, blend });
         return true;
     }

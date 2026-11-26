@@ -81,10 +81,10 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
     out.update({ limit: 60, inferred: false, over: false }, Date.now());
     await wait(200);
     const hud = ops('layer').filter((m) => m.target === 'hud');
-    check(hud.length === 1 && hud[0].kind === 'image' && hud[0].class === 'overlay' && hud[0].w === 88 && hud[0].iw === 88, 'HUD layer: an 88 px image, class overlay');
+    check(hud.length === 1 && hud[0].kind === 'image' && hud[0].class === 'overlay' && hud[0].w === 88 && hud[0].iw === 176 && hud[0].sampling === 'bilinear', 'HUD layer: an 88 px overlay with a 176 px texture');
     const hx = hud[0] || {};
     check(hx.x >= 0 && hx.x + 88 <= 800 && hx.y >= 0 && hx.y + 88 <= 480, 'HUD layer inside the 800x480 target (' + hx.x + ',' + hx.y + ')');
-    check(got.some((g) => g.t === 'F' && g.ref === hx.ref && g.bytes === 88 * 88 * 4), 'HUD pixels sent whole (88x88 RGBA)');
+    check(got.some((g) => g.t === 'F' && g.ref === hx.ref && g.bytes === 176 * 176 * 4), 'HUD pixels sent whole (176x176 RGBA)');
     check(ops('layer').filter((m) => m.target === 'map').length === 0, 'no map layer while no other app shows the map');
 
     const framesBefore = got.filter((g) => g.t === 'F').length;
@@ -127,7 +127,7 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
     await wait(150);
     const hosted = ops('layer').find((m) => m.target === 'panel');
     check(hosted && hosted.class === 'overlay' && hosted.contend === 0 && hosted.x === 613 && hosted.y === 325 &&
-        hosted.w === 55 && hosted.h === 55 && hosted.iw === 110 && hosted.ih === 110,
+        hosted.w === 55 && hosted.h === 55 && hosted.iw === 220 && hosted.ih === 220,
         'the sign follows the map into the theme, with its size and position scaled to the host');
     settings.v.clusterX = -180;
     out.update({ limit: 60 }, Date.now());
@@ -171,7 +171,7 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
     await wait(150);
     const camL = ops('layer').filter((m) => m.target === 'hud').slice(-1)[0];
     const camF = got.filter((g) => g.t === 'F' && g.ref === camL.ref);
-    check(camL.w > camL.h && camL.iw === camL.w && camF.length === 1 && camF[0].bytes === camL.w * camL.h * 4, 'camera ahead: the sign with its pill (' + camL.w + 'x' + camL.h + ')');
+    check(camL.w > camL.h && camL.iw === camL.w * 2 && camF.length === 1 && camF[0].bytes === camL.iw * camL.ih * 4, 'camera ahead: the sign with its pill (' + camL.w + 'x' + camL.h + ')');
     out.update({ limit: 60, inferred: false, over: false, camera: '350 m' }, Date.now());
     out.update({ limit: 60, inferred: false, over: false, camera: '300 m' }, Date.now());
     await wait(150);
@@ -198,7 +198,7 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
     await wait(150);
     const small = ops('layer').filter((m) => m.target === 'hud').slice(-1)[0];
     check(small.h === 40 && small.w > 40 && small.x + 20 === hx.x + 44 + 40 &&
-        got.some((g) => g.t === 'F' && g.ref === small.ref && g.bytes === small.w * 40 * 4),
+        got.some((g) => g.t === 'F' && g.ref === small.ref && g.bytes === small.iw * small.ih * 4),
     '40 px HUD sign keeps its centre and sends the attached camera badge');
 
     statusText = 'layer 4 video of robertn_waze_cluster on map, content z 0: shown\n';
@@ -209,14 +209,17 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
     out.setJunction({ kind: 'yield', metres: 60, demo: true }, Date.now());
     await wait(560);
     const priority = ops('layer').find((m) => m.z === 21);
-    const faded = (ref) => got.slice(beforeAlert).filter((m) => m.t === 'F' && m.ref === ref).map((m) => m.alpha);
+    const faded = (ref) => got.slice(beforeAlert).filter((g) => g.t === 'J' && g.m.ref === ref &&
+        typeof g.m.opacity === 'number').map((g) => g.m.opacity);
     check(priority && priority.target === 'hud' && priority.x === small.x && priority.y === small.y,
         'priority sign uses the speed sign position even with a camera badge');
-    check(faded(small.ref).some((a) => a > 0 && a < 255) && faded(priority.ref).slice(-1)[0] === 255 &&
+    check(faded(small.ref).some((a) => a > 0 && a < 1) && faded(priority.ref).slice(-1)[0] === 1 &&
         ops('set').some((m) => m.ref === small.ref && m.visible === 0), 'speed sign fades out and priority sign fades in');
+    check(got.slice(beforeAlert).filter((g) => g.t === 'F' && g.ref === priority.ref).length === 1,
+        'fading does not repeatedly upload the doubled texture');
     const clusterAlert = ops('layer').find((m) => m.target === 'map' && m.z === 21);
     check(clusterAlert && clusterAlert.x + clusterAlert.w === mapSign.x + mapSign.w && clusterAlert.y === mapSign.y &&
-        faded(clusterAlert.ref).slice(-1)[0] === 255 &&
+        faded(clusterAlert.ref).slice(-1)[0] === 1 &&
         ops('set').some((m) => m.ref === mapSign.ref && m.visible === 0),
         'priority alert takes the cluster speed sign position and fades it out');
     settings.v.hudX += 10;
@@ -226,7 +229,7 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
     check(ops('set').some((m) => m.ref === priority.ref && m.x === priority.x + 10), 'demo sign moves ten pixels with the HUD controls');
     out.setJunction(null, Date.now());
     await wait(560);
-    check(ops('drop').some((m) => m.ref === priority.ref) && faded(small.ref).slice(-1)[0] === 255 &&
+    check(ops('drop').some((m) => m.ref === priority.ref) && faded(small.ref).slice(-1)[0] === 1 &&
         ops('set').some((m) => m.ref === small.ref && m.visible === 1), 'the speed sign fades back after the alert');
 
     check(ops('drop').some((m) => m.ref === clusterAlert.ref) &&

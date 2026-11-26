@@ -7,6 +7,7 @@ const { model, readEta, readTurn } = require('./ocr');
 const FONT = require('./eta-atlas.json');
 const INTERVAL = 4000;
 const KEEP = 120000;
+const TURN_KEEP = 9500;
 const LEASE = 12000;
 const START_WINDOW = 45000;
 const FRAME = '/run/waze-eta-reader/frame.rgb';
@@ -16,8 +17,8 @@ const SIZES = [[1920, 720], [1280, 480], [1440, 540], [960, 360]];
 function state(now) {
     let end = 0, front = null, bootstrap = 0, generation = 0, guidance = false;
     let last = null, candidate = null, code = 'idle';
-    let lastTurn = null, candidateTurn = null;
-    const clearTurn = () => { lastTurn = candidateTurn = null; };
+    let lastTurn = null, candidateTurn = null, missedTurn = false;
+    const clearTurn = () => { lastTurn = candidateTurn = null; missedTurn = false; };
     const active = () => now() < end;
     const canCapture = () => front === true || (front === null && (guidance || now() < bootstrap));
     return {
@@ -40,11 +41,16 @@ function state(now) {
         captureToken() { return active() && canCapture() ? generation : null; },
         result(token, value, reason, turn) {
             if (!active() || !canCapture() || token !== generation) return;
-            if (!value || !turn) clearTurn();
-            else {
+            if (!value || !turn) {
+                if (missedTurn) clearTurn();
+                else { missedTurn = true; candidateTurn = null; }
+            } else {
                 const key = turn.kind + ':' + (turn.exit || '');
-                if (candidateTurn === key) lastTurn = Object.assign({ at: now() }, turn);
+                const verified = lastTurn && lastTurn.kind === turn.kind && lastTurn.exit === turn.exit &&
+                    now() - lastTurn.at < TURN_KEEP;
+                if (candidateTurn === key || verified) lastTurn = Object.assign({ at: now() }, turn);
                 else lastTurn = null;
+                missedTurn = false;
                 candidateTurn = key;
             }
             const wasLive = code === 'live';
@@ -63,7 +69,7 @@ function state(now) {
             const age = last ? now() - last.at : Infinity;
             return { code: canCapture() ? code : front === null ? 'no-screen-event' : 'hidden', active: true,
                 eta: age >= 0 && age < KEEP ? last : null,
-                turn: canCapture() && lastTurn && now() - lastTurn.at < 10000 ? lastTurn : null };
+                turn: canCapture() && lastTurn && now() - lastTurn.at < TURN_KEEP ? lastTurn : null };
         },
     };
 }
@@ -108,22 +114,22 @@ function run() {
             try {
                 if (token !== probe.captureToken()) return;
                 if (error) {
-                    captureDetail = error.killed ? 'Timp expirat' : error.code === 'ENOENT' ? 'Utilitar absent' :
-                        Number.isInteger(error.code) ? 'Cod ' + error.code : 'Eroare la pornire';
+                    captureDetail = error.killed ? 'capture-timeout' : error.code === 'ENOENT' ? 'missing-capture-tool' :
+                        Number.isInteger(error.code) ? 'exit:' + error.code : 'capture-start-failed';
                     probe.result(token, null, 'capture-failed'); return;
                 }
                 const size = fs.statSync(FRAME).size;
                 const base = Math.sqrt(size / 96);
                 const dims = SIZES.find(([w, h]) => w * h * 4 === size) ||
                     (Number.isInteger(base) && base >= 100 && base <= 320 ? [base * 8, base * 3] : null);
-                captureDetail = dims ? dims.join(' × ') : size + ' octeți';
+                captureDetail = dims ? dims.join(' × ') : size + ' bytes';
                 if (!dims) { probe.result(token, null, 'capture-format'); return; }
                 const frame = fs.readFileSync(FRAME);
                 const eta = readEta(frame, dims[0], dims[1], templates);
                 probe.result(token, eta, 'no-eta', eta && readTurn(frame, dims[0], dims[1], templates, eta.layout));
             } catch (err) {
                 console.warn('ETA read: ' + err.message);
-                captureDetail = err.code === 'ENOENT' ? 'Captura nu a produs un cadru' : 'Cadrul nu a putut fi citit';
+                captureDetail = err.code === 'ENOENT' ? 'no-frame' : 'unreadable-frame';
                 probe.result(token, null, 'capture-failed');
             } finally { clearFrame(); capturing = false; }
         });

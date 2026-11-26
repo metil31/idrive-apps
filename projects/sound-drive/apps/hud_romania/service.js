@@ -13,11 +13,18 @@ function startService(ctx, deps) {
     const { signals, settings, log, app } = ctx;
     const now = deps.now || Date.now;
     const state = new HudState();
-    const out = new HudOutput(deps.makeClient, deps.Canvas);
+    const out = new HudOutput(deps.makeClient, deps.ScaledCanvas);
     let stopped = false;
     const subscriptions = [];
     const retryTimers = new Set();
-    const tick = () => { if (!stopped) out.update(state.view(now(), settings), settings); };
+    const view = () => state.view(now(), settings);
+    const tick = () => {
+        if (stopped) return;
+        const sample = deps.preview && deps.preview(), live = view();
+        if (sample === 'indicators') { live.direction = 'both'; live.bright = true; }
+        if (sample === 'eta') live.eta = 'Demo · 16:28 · 12 min · 6 km';
+        out.update(live, settings);
+    };
     const watch = (iface, instance, handlers, attempt = 0) => {
         const retry = (error) => {
             if (stopped || attempt >= 3 || /no SOME\/IP config|native module not available/i.test(String(error))) return;
@@ -37,7 +44,7 @@ function startService(ctx, deps) {
             if (sub.error && !sub.proxy) { retry(sub.error); return; }
             subscriptions.push(sub);
         }).catch((e) => {
-            log.warn('Sursă indisponibilă: ' + iface + ': ' + e.message);
+            log.warn('Source unavailable: ' + iface + ': ' + e.message);
             retry(e);
         });
     };
@@ -68,7 +75,7 @@ function startService(ctx, deps) {
         subscriptions.forEach((sub) => sub.shutdown().catch(() => {}));
     };
     if (app && typeof app.on === 'function') app.on('shutdown', stop);
-    return { state, out, view: () => state.view(now(), settings), etaStatus: () => state.etaStatus(now()), stop };
+    return { state, out, view, etaStatus: t => state.etaStatus(now(), t), tick, stop };
 }
 
 module.exports = { startService };

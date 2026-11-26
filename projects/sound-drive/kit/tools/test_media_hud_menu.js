@@ -2,9 +2,10 @@
 
 const assert = require('assert');
 const EventEmitter = require('events');
-const spec = require('../../apps/media_hud_ro/app.json');
-const { wireMenu } = require('../../apps/media_hud_ro/menu');
+const spec = require('../../apps/hud_romania/app.json');
+const { wireMenu } = require('../../apps/hud_romania/media-menu');
 
+const { menuLanguage } = require('../runtime/menu-language');
 const screen = spec.screens[0];
 assert.strictEqual(screen.name, 'MAIN');
 assert.strictEqual(screen.kind, 'menu');
@@ -16,12 +17,16 @@ for (const id of ['MR_HUD_SIZE', 'MR_CL_SIZE']) {
     slider.setStepValue = (value) => current.set(id + ':step', value);
     components.set(id, slider);
 }
-const values = new Map(spec.settings.map((entry) => [entry.key, entry.default]));
+const media = spec.settings.filter(entry => entry.key.startsWith('media')).map(entry => ({
+    ...entry, key: entry.key[5].toLowerCase() + entry.key.slice(6),
+}));
+const values = new Map(media.map((entry) => [entry.key, entry.default]));
+values.set('enabled', true);
 values.set('positionX', 90);
 values.set('positionY', 350);
 const listeners = [];
 const settings = {
-    item: (key) => spec.settings.find((entry) => entry.key === key),
+    item: (key) => media.find((entry) => entry.key === key),
     get: (key) => values.get(key),
     set: (key, value) => { values.set(key, value); listeners.forEach((listener) => listener(key, value)); },
     onChange: (listener) => listeners.push(listener),
@@ -40,7 +45,8 @@ const ui = {
     open: () => assert.fail('position controls must stay on the current page'),
 };
 
-wireMenu({ ui, settings, app, background: { status: () => 'Media pe HUD', track: () => null } });
+const language = menuLanguage({ ui, settings, spec });
+wireMenu({ ui, settings, app, language, background: { status: () => 'Media pe HUD', track: () => null } });
 try {
     const press = (id, event) => click.get(id)(event || {});
     press('MR_HUD_RIGHT');
@@ -67,6 +73,9 @@ try {
     components.get('MR_HUD_SIZE').emit('changed', 8);
     assert.strictEqual(settings.get('hudSize'), 150);
     assert.strictEqual(settings.get('clusterSize'), 100);
+    press('APP_LANGUAGE', { row: 1 });
+    assert.strictEqual(settings.get('menuLanguage'), 'ro');
+    assert.match(current.get('MR_HUD_POS'), /^Pozitie/);
     press('MR_ART');
     assert.strictEqual(settings.get('albumArt'), true);
 } finally {

@@ -1,8 +1,9 @@
 {
   "id": "speed_limit",
-  "title": "Speed Limit România",
-  "description": "Limita drumului curent și avertizări de prioritate din harta offline OpenStreetMap România. Doar citire.",
-  "version": "1.1.9",
+  "title": "Speed Limit Romania",
+  "description": "Offline speed limits and priority signs from OpenStreetMap Romania.",
+  "version": "1.2.0",
+  "language": "en",
   "vendor": "custom",
   "loggingId": "OASL",
   "iconGlyph": "60",
@@ -34,9 +35,10 @@
     {
       "name": "MAIN",
       "kind": "menu",
-      "title": "Speed Limit",
+      "title": "Speed Limit Romania",
       "settings": true,
       "items": [
+        ["dropdown", "APP_LANGUAGE", "Language", ["English", "Romana"]],
         [
           "header",
           "SL_HEAD_GENERAL",
@@ -49,7 +51,7 @@
           [
             "Cluster",
             "HUD",
-            "Cluster and HUD",
+            "HUD and cluster",
             "Off"
           ]
         ],
@@ -146,7 +148,7 @@
         [
           "text",
           "SL_CL_ROUTE",
-          "Bord: -"
+          "Cluster: -"
         ],
         [
           "slider",
@@ -235,12 +237,14 @@
           "SL_HUD_DEFAULT",
           "Default position"
         ],
-        ["header", "SL_HEAD_JUNCTION", "Indicatoare de prioritate"],
-        ["checkbox", "SL_JUNCTION", "Cedează trecerea și STOP pe HUD"],
-        ["checkbox", "SL_JUNCTION_CL", "Cedează trecerea și STOP în bord"],
-        ["button", "SL_JUNCTION_YIELD", "Demo: Cedează trecerea"],
-        ["button", "SL_JUNCTION_STOP", "Demo: STOP"],
-        ["button", "SL_JUNCTION_END", "Oprește demo-ul"],
+        ["header", "SL_HEAD_JUNCTION", "Priority signs"],
+        ["checkbox", "SL_JUNCTION", "Show give way and STOP on HUD"],
+        ["checkbox", "SL_JUNCTION_CL", "Show give way and STOP on cluster"],
+        ["button", "SL_DEMO_LIMIT", "Demo speed limit"],
+        ["button", "SL_DEMO_CAMERA", "Demo speed camera"],
+        ["button", "SL_JUNCTION_YIELD", "Demo give way"],
+        ["button", "SL_JUNCTION_STOP", "Demo STOP"],
+        ["button", "SL_JUNCTION_END", "Stop demo"],
         [
           "header",
           "SL_HEAD_LOG",
@@ -290,6 +294,7 @@
     }
   ],
   "settings": [
+    {"key": "menuLanguage", "label": "Language", "type": "choice", "default": "en", "options": [["en", "English"], ["ro", "Romana"]], "hidden": true},
     {
       "key": "show",
       "label": "Show on",
@@ -394,14 +399,14 @@
     },
     {
       "key": "junctionHud",
-      "label": "Avertizări Cedează trecerea și STOP",
+      "label": "Show give way and STOP on HUD",
       "type": "bool",
       "default": false,
       "hidden": true
     },
     {
       "key": "junctionCluster",
-      "label": "Cedează trecerea și STOP în bord",
+      "label": "Show give way and STOP on cluster",
       "type": "bool",
       "default": true,
       "hidden": true
@@ -596,5 +601,59 @@
       "hidden": true,
       "comment": "the QR screen is the HMI's own picture: the kit never connects to (or waits for) the GPU renderer"
     }
-  ]
+  ],
+  "config": {
+    "menuRomanian": {
+      "APP_LANGUAGE": ["Limba", ["English", "Romana"]],
+      "SL_HEAD_GENERAL": ["General"],
+      "SL_SHOW": ["Afiseaza pe", ["Bord", "HUD", "HUD si bord", "Oprit"]],
+      "SL_OVER": ["Semn rosu peste limita", ["Oprit", "+5 km/h", "+10 km/h", "+15 km/h", "+20 km/h"]],
+      "SL_NOLIMIT": ["Cand limita lipseste", ["Ascunde semnul", "Afiseaza ---"]],
+      "SL_CAMS": ["Camere de viteza", ["Avertizeaza", "Oprit"]],
+      "SL_LIMIT": ["Limita de viteza: -"],
+      "SL_HEAD_ROAD": ["Drumul curent"],
+      "SL_ROAD": ["Drumul curent: -"],
+      "SL_FIX": ["Corecteaza limita", ["Foloseste harta", "20 km/h", "30 km/h", "40 km/h", "50 km/h", "60 km/h", "70 km/h", "80 km/h", "90 km/h", "100 km/h", "110 km/h", "120 km/h", "130 km/h"]],
+      "SL_FIXES": ["Corectii: niciuna"],
+      "SL_FIX_UNDO": ["Anuleaza ultima corectie"],
+      "SL_FIX_CLEAR": ["Sterge toate corectiile"],
+      "SL_HEAD_CL": ["Bord"],
+      "SL_CL": ["Semn bord: -"],
+      "SL_CL_ROUTE": ["Bord: -"],
+      "SL_CL_SIZE": ["Marime: -"],
+      "SL_CL_POS": ["Pozitie: -"],
+      "SL_CL_LEFT": ["Muta la stanga"],
+      "SL_CL_RIGHT": ["Muta la dreapta"],
+      "SL_CL_UP": ["Muta in sus"],
+      "SL_CL_DOWN": ["Muta in jos"],
+      "SL_CL_DEFAULT": ["Pozitie implicita"],
+      "SL_HEAD_HUD": ["HUD"],
+      "SL_HUD": ["Semn HUD: -"],
+      "SL_HUD_KEEP": ["Pastreaza semnul HUD peste ferestrele BMW"],
+      "SL_HUD_SIZE": ["Marime: -"],
+      "SL_HUD_POS": ["Pozitie: -"],
+      "SL_HUD_LEFT": ["Muta la stanga"],
+      "SL_HUD_RIGHT": ["Muta la dreapta"],
+      "SL_HUD_UP": ["Muta in sus"],
+      "SL_HUD_DOWN": ["Muta in jos"],
+      "SL_HUD_DEFAULT": ["Pozitie implicita"],
+      "SL_HEAD_JUNCTION": ["Indicatoare de prioritate"],
+      "SL_JUNCTION": ["Cedeaza trecerea si STOP pe HUD"],
+      "SL_JUNCTION_CL": ["Cedeaza trecerea si STOP in bord"],
+      "SL_DEMO_LIMIT": ["Demo limita de viteza"],
+      "SL_DEMO_CAMERA": ["Demo radar"],
+      "SL_JUNCTION_YIELD": ["Demo Cedeaza trecerea"],
+      "SL_JUNCTION_STOP": ["Demo STOP"],
+      "SL_JUNCTION_END": ["Opreste demo"],
+      "SL_HEAD_LOG": ["Jurnal de rulare"],
+      "SL_LOG": ["Pastreaza jurnalul drumurilor identificate"],
+      "SL_QR_SHOW": ["Afiseaza jurnalul ca coduri QR"],
+      "SL_HEAD_MAP": ["Harta"],
+      "SL_MAP": [""],
+      "SL_QR_TITLE": ["Jurnal"],
+      "SL_QR_PREV": ["Anterior"],
+      "SL_QR_NEXT": ["Urmator"],
+      "SL_QR_SIZE": ["Marime: Medie"]
+    }
+  }
 }

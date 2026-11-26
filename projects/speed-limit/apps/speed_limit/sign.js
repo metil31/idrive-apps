@@ -13,8 +13,9 @@
  * the picture is then wider than tall, the sign at its left. Outside the shapes everything is transparent (on the
  * HUD, black and transparent are both see-through).
  */
-const { Canvas } = require('./kit/canvas');
+const { Canvas, ScaledCanvas } = require('./kit/canvas');
 
+const TEXTURE_SCALE = 2;
 const RED = '#d0021b', GREY = '#8a9099', WHITE = '#ffffff', BLACK = '#111111';
 
 function paintSign(c, cx, cy, r, limit, opts) {
@@ -68,7 +69,7 @@ function signWidth(size, camera) {
  * arrow on the phone map. */
 function drawSign(limit, opts) {
     const o = opts || {};
-    const size = Math.max(32, Math.round(o.size || 96)), W = signWidth(size, o.camera), c = new Canvas(W, size);
+    const size = Math.max(32, Math.round(o.size || 96)), W = signWidth(size, o.camera), c = new ScaledCanvas(W, size, TEXTURE_SCALE);
     const left = !!(o.camera && o.pillLeft), sx = left ? W - size / 2 : size / 2;
     if (o.camera) {
         // the pill: from under the sign's inner half to the picture's far edge, 64 % of the sign's height; the camera
@@ -87,8 +88,14 @@ function drawSign(limit, opts) {
         }
     }
     paintSign(c, sx, size / 2, size / 2 - 1.5, limit, o);
-    return { w: W, h: size, px: Buffer.from(c.d.buffer, c.d.byteOffset, c.d.length),
-        key: [limit, size, !!o.inferred, !!o.over, o.camera || '', left ? 'L' : 'R'].join(':') };
+    if (o.demo) {
+        const labelSize = size * 0.16;
+        c.roundRect(sx - size * 0.26, size * 0.72, size * 0.52, size * 0.20, size * 0.1, BLACK);
+        c.text('DEMO', sx, size * 0.875, labelSize, WHITE, { literal: true, font: 'bold', align: 'center' });
+    }
+    const pixels = c.canvas.d;
+    return { w: W, h: size, px: Buffer.from(pixels.buffer, pixels.byteOffset, pixels.length),
+        key: [limit, size, !!o.inferred, !!o.over, !!o.demo, o.camera || '', left ? 'L' : 'R'].join(':') };
 }
 
-module.exports = { drawSign, paintSign, signWidth };
+module.exports = { drawSign, paintSign, signWidth, TEXTURE_SCALE };

@@ -3,11 +3,14 @@
 const net = require('net');
 const mgu = require('./kit/mgu');
 const { conditionOf } = require('./kit/car');
-const { Canvas, ScaledCanvas } = require('./kit/canvas');
+const { ScaledCanvas } = require('./kit/canvas');
 const { ClusterRender } = require('./cluster_render_client');
 const { MAP, hostArea, mapDisplays } = require('./map-area');
+const { displayPreview } = require('./kit/display-preview');
+const { menuLanguage } = require('./kit/menu-language');
 
 const SOCKET = '/run/waze-eta-reader/control.sock';
+const TEXTURE_SCALE = 3;
 const SIZE = [70, 80, 90, 100, 110, 120, 130];
 const HUD = { x: 0, y: 0, w: 800, h: 480 };
 const PARTS = [
@@ -18,22 +21,41 @@ const PARTS = [
 ];
 const MOVES = { LEFT: [0, -10], RIGHT: [0, 10], UP: [1, -10], DOWN: [1, 10] };
 const STATUS = {
-    idle: 'Așteaptă pornirea cititorului', hidden: 'Așteaptă ecranul CarPlay',
-    waiting: 'Așteaptă următoarea captură', 'no-eta': 'Bara ETA nu a fost citită',
-    confirming: 'Verifică valoarea pe următorul cadru', live: 'ETA citit din Waze',
-    'capture-failed': 'Captură indisponibilă', 'capture-format': 'Format de captură necunoscut',
-    'no-screen-event': 'Așteaptă un traseu activ în CarPlay', unavailable: 'Cititorul nu răspunde',
+    idle: ['Waiting for reader', 'Asteapta cititorul'], hidden: ['Waiting for CarPlay', 'Asteapta ecranul CarPlay'],
+    waiting: ['Waiting for the next frame', 'Asteapta urmatorul cadru'],
+    'no-eta': ['ETA bar could not be read', 'Bara ETA nu a putut fi citita'],
+    confirming: ['Confirming ETA', 'Confirma valoarea ETA'], live: ['ETA read from Waze', 'ETA citit din Waze'],
+    'capture-failed': ['Capture unavailable', 'Captura indisponibila'],
+    'capture-format': ['Unknown capture format', 'Format de captura necunoscut'],
+    'no-screen-event': ['Waiting for CarPlay navigation', 'Asteapta un traseu CarPlay'],
+    unavailable: ['Reader unavailable', 'Cititor indisponibil'],
 };
+const DETAILS = {
+    'capture-timeout': ['Capture timed out', 'Timp expirat la captura'],
+    'missing-capture-tool': ['Capture tool missing', 'Utilitarul de captura lipseste'],
+    'no-frame': ['No frame captured', 'Captura nu a produs un cadru'],
+    'unreadable-frame': ['Frame unreadable', 'Cadrul nu a putut fi citit'],
+    'access-denied': ['Access denied', 'Acces refuzat'],
+    'capture-start-failed': ['Capture could not start', 'Captura nu a putut porni'],
+    'reader-off': ['Reader is not running', 'Cititorul nu este pornit'],
+};
+const DEMO_ETA = { arrival: '16:28', duration: '12 min', distance: '6 km', demo: true };
+const DEMO_TURNS = [
+    { kind: 'right', distance: '530 m', demo: true },
+    { kind: 'left', distance: '70 m', demo: true },
+    { kind: 'roundabout', exit: 2, distance: '100 m', demo: true },
+    { kind: 'lanes', distance: '700 m', demo: true },
+];
 
 function request(command) {
     return new Promise((resolve, reject) => {
         let result = '';
         const socket = net.createConnection(SOCKET, () => socket.write(command + '\n'));
-        socket.setTimeout(1500, () => socket.destroy(new Error('Timp expirat')));
+        socket.setTimeout(1500, () => socket.destroy(new Error('Request timed out')));
         socket.on('error', reject);
         socket.on('data', (part) => {
             result += part.toString('utf8');
-            if (result.length > 1024) socket.destroy(new Error('Răspuns prea mare'));
+            if (result.length > 1024) socket.destroy(new Error('Response too large'));
         });
         socket.on('end', () => {
             try { resolve(JSON.parse(result)); } catch (error) { reject(error); }
@@ -78,15 +100,29 @@ function placement(settings, part, area, hosted) {
 function etaLabel(eta) { return eta.arrival + '  ·  ' + eta.duration + '  ·  ' + eta.distance; }
 
 function pill(part, value) {
-    const { w, h } = part, highRes = part.target === 'map';
-    const cv = highRes ? new ScaledCanvas(w, h, 2) : new Canvas(w, h);
+    const { w, h } = part;
+    const cv = new ScaledCanvas(w, h, TEXTURE_SCALE);
     cv.clear();
     cv.roundRect(1, 1, w - 2, h - 2, (h - 2) / 2, [24, 27, 31, 207]);
-    if (part.turn && value.kind === 'roundabout') {
+    const lanes = value.kind === 'lanes';
+    if (lanes) {
+        const y = h / 2, center = (w + 43) / 2;
+        cv.polyline([[26, y + 13], [26, y - 13], [20, y - 6]], 3.5, '#ffffff');
+        cv.polyline([[26, y - 13], [32, y - 6]], 3.5, '#ffffff');
+        for (const [i, x] of [center - 18, center, center + 18].entries()) {
+            const color = i === 2 ? '#838a93' : '#ffffff';
+            const endX = i === 2 ? x + 5 : x, endY = y + 4;
+            cv.polyline([[x, y + 15], [x, endY + 5], [endX, endY]], 2, color);
+            const corners = i === 2 ? [[endX - 4, endY], [endX, endY + 5]] :
+                [[endX - 3, endY + 4], [endX + 3, endY + 4]];
+            cv.polyline([corners[0], [endX, endY], corners[1]], 2, color);
+            if (i < 2) cv.polyline([[x + 9, endY + 1], [x + 9, y + 15]], 1, '#565d66');
+        }
+    } else if (part.turn && value.kind === 'roundabout') {
         const x = 32, y = h / 2;
         cv.arc(x, y, 10, 13, 0, 360, '#7a8188');
-        cv.arc(x, y, 10, 13, 8, 156, '#ffffff');
-        cv.arc(x, y, 10, 13, 182, 315, '#ffffff');
+        cv.arc(x, y, 9, 13, 20, 284, '#ffffff');
+        cv.polyline([[x - 10, y + 6], [x - 10, y + 15]], 4, '#ffffff');
         cv.text(String(value.exit), x, y + 5, 15, '#ffffff', { align: 'center', font: 'bold', literal: true });
     } else if (part.turn) {
         const x = n => value.kind === 'right' ? 23 + n : 23 + 25 - n;
@@ -94,12 +130,12 @@ function pill(part, value) {
         cv.polyline([[x(0), y + 24], [x(0), y + 15], [x(3), y + 9], [x(9), y + 5], [x(23), y + 5]], 4, '#ffffff');
         cv.polyline([[x(17), y], [x(23), y + 5], [x(17), y + 10]], 4, '#ffffff');
     }
-    const text = part.turn ? value.distance : etaLabel(value), offset = part.turn ? 43 : 0;
+    const text = part.turn ? (value.demo ? 'Demo ' : '') + value.distance : (value.demo ? 'Demo  ' : '') + etaLabel(value), offset = part.turn ? 43 : 0;
     const style = { align: 'center', font: 'bold', literal: true };
     const measured = cv.textWidth(text, 18, style);
     const size = Math.min(18, 18 * (w - offset - 18) / Math.max(1, measured));
-    cv.text(text, (w + offset) / 2, h / 2 + size * 0.34, size, '#ffffff', style);
-    const pixels = highRes ? cv.canvas.d : cv.d;
+    cv.text(text, (w + offset) / 2, lanes ? h / 2 - 2 : h / 2 + size * 0.34, size, '#ffffff', style);
+    const pixels = cv.canvas.d;
     return Buffer.from(pixels.buffer, pixels.byteOffset, pixels.byteLength);
 }
 
@@ -107,6 +143,7 @@ function background({ app, settings, signals, log }) {
     let data = { code: 'idle' }, pending = false, ready = false, stopped = false, watch, leased = false;
     let client, connected = false, host, maps, lastStatus = 0, asked = null;
     const layers = new Map();
+    const preview = displayPreview(signals, log, () => ready && !stopped, draw);
     const want = () => ready && PARTS.some(part => settings.get(part.enabled));
     const drop = (part) => {
         const layer = layers.get(part);
@@ -121,9 +158,14 @@ function background({ app, settings, signals, log }) {
     function draw() {
         const now = Date.now();
         const fresh = (value, ttl) => value && now >= value.at && now - value.at < ttl ? value : null;
-        const eta = fresh(data.eta, 120000), turn = fresh(data.turn, 10000);
-        const enabled = stopped || !ready ? [] : PARTS.filter(part => settings.get(part.enabled) && (part.turn ? turn : eta));
-        if (!enabled.length) { close(); return; }
+        const eta = fresh(data.eta, 120000), turn = fresh(data.turn, 9500);
+        const sample = preview.current();
+        const values = new Map();
+        if (!stopped && ready) for (const part of PARTS) {
+            const value = sample && sample.part === part ? sample.value : settings.get(part.enabled) && (part.turn ? turn : eta);
+            if (value) values.set(part, value);
+        }
+        if (!values.size) { close(); return; }
         if (!client) {
             const active = client = new ClusterRender('waze_eta_ro');
             active.on('ready', () => { if (client === active) { connected = true; asked = null; draw(); } });
@@ -134,7 +176,10 @@ function background({ app, settings, signals, log }) {
             });
             active.on('host', (target, event) => {
                 if (client !== active || target !== 'map') return;
-                host = hostArea(event, active.targets); maps = null; asked = null; draw();
+                const next = hostArea(event, active.targets);
+                if (JSON.stringify(next) === JSON.stringify(host || null)) return;
+                if (maps) maps.panel = false;
+                host = next; asked = null; draw();
             });
             active.on('target', (target, state) => {
                 if (client !== active || target !== 'map' && target !== 'panel') return;
@@ -149,7 +194,7 @@ function background({ app, settings, signals, log }) {
         }
         if (!connected) return;
         if (now - lastStatus > 7000) maps = null;
-        if (enabled.some(part => part.target === 'map') && (asked === null || now - asked >= 3000)) {
+        if (Array.from(values.keys()).some(part => part.target === 'map') && (asked === null || now - asked >= 3000)) {
             asked = now;
             client.status();
         }
@@ -157,20 +202,19 @@ function background({ app, settings, signals, log }) {
             const hosted = part.target === 'map' && maps && maps.panel && host;
             const target = hosted ? 'panel' : part.target;
             const area = target === 'hud' ? HUD : hosted || (maps && maps.map && MAP);
-            const rect = enabled.includes(part) && area && placement(settings, part, area, !!hosted);
+            const rect = values.has(part) && area && placement(settings, part, area, !!hosted);
             let layer = layers.get(part);
             if (!rect || layer && layer.target !== target) { drop(part); layer = null; }
             if (!rect) continue;
             const shape = JSON.stringify(rect);
             if (!layer) {
-                const scale = part.target === 'map' ? 2 : 1;
                 const ref = client.image(Object.assign({ target, klass: 'overlay', z: part.turn ? 13 : 12,
-                    iw: part.w * scale, ih: part.h * scale, sampling: 'bilinear', fps: 2, contend: 0, yield: 1 }, rect));
+                    iw: part.w * TEXTURE_SCALE, ih: part.h * TEXTURE_SCALE, sampling: 'bilinear', fps: 2, contend: 0, yield: 1 }, rect));
                 if (!ref) continue;
                 layers.set(part, layer = { ref, target, shape });
             } else if (shape !== layer.shape) { client.set(layer.ref, rect); layer.shape = shape; }
-            const value = part.turn ? turn : eta;
-            const key = part.turn ? [value.kind, value.exit, value.distance].join(':') : etaLabel(value);
+            const value = values.get(part);
+            const key = (value.demo ? 'demo:' : '') + (part.turn ? [value.kind, value.exit, value.distance].join(':') : etaLabel(value));
             if (layer.key !== key && client.pixels(layer.ref, null, pill(part, value))) layer.key = key;
         }
     }
@@ -182,8 +226,8 @@ function background({ app, settings, signals, log }) {
             data = await request(reading ? 'start' : 'stop');
             leased = reading;
         } catch (error) {
-            data = { code: 'unavailable', captureDetail: error.code === 'EACCES' ? 'Acces refuzat' :
-                error.code === 'ENOENT' ? 'Cititorul nu este pornit' : '' };
+            data = Object.assign({}, data, { code: 'unavailable', captureDetail: error.code === 'EACCES' ? 'access-denied' :
+                error.code === 'ENOENT' ? 'reader-off' : '' });
         } finally { pending = false; }
         if (stopped) { if (leased) request('stop').catch(() => {}); return; }
         draw();
@@ -191,20 +235,25 @@ function background({ app, settings, signals, log }) {
     }
     const tick = () => { draw(); refresh(); };
     signals.watch('de.bmw.infrastructure.VehicleCondition', '1', {
-        VehicleCondition: (v) => { ready = conditionOf(v && v.statusConditionVehicle) === 10; tick(); },
+        VehicleCondition: (v) => { ready = conditionOf(v && v.statusConditionVehicle) === 10; if (!ready) preview.stop(); tick(); },
     }, log).then((sub) => { if (stopped) sub.shutdown(); else watch = sub; }).catch(() => {});
     settings.onChange(tick);
     const timer = setInterval(tick, 1000);
     app.on('shutdown', () => {
         stopped = true;
-        clearInterval(timer); close();
+        clearInterval(timer); preview.stop(); close();
         if (!pending && leased) request('stop').catch(() => {});
         if (watch) watch.shutdown();
     });
-    return { refresh, snapshot: () => ({ data, ready, clusterVisible: PARTS.some(part => part.target === 'map' && layers.has(part)) }) };
+    return { refresh, preview, snapshot: () => ({ data, ready, clusterVisible: PARTS.some(part => part.target === 'map' && layers.has(part)) }) };
 }
 
-function start({ app, ui, settings, background }) {
+function start(ctx) {
+    const { app, ui, settings, background } = ctx;
+    const language = menuLanguage(ctx), { t } = language;
+    const samples = PARTS.map(part => (part.turn ? DEMO_TURNS : [DEMO_ETA]).map(value => ({ part, value })));
+    const selected = () => background && background.preview.selected();
+    const adjustable = part => settings.get(part.enabled) || selected() && selected().part === part;
     const shown = new Map();
     const set = (key, value) => { if (settings.get(key) !== value) settings.set(key, value); };
     function show(method, id, value) {
@@ -213,32 +262,46 @@ function start({ app, ui, settings, background }) {
         shown.set(key, value); ui[method](id, value);
     }
     const sections = PARTS.map(part => ({ part, slider: ui.comp(part.row + '_SIZE') }));
-    for (const { part, slider } of sections) {
+    for (const [index, { part, slider }] of sections.entries()) {
         const { row, enabled, keys, base } = part;
+        for (const [sampleIndex, sample] of samples[index].entries()) {
+            ui.onClick(row + '_DEMO' + sampleIndex, () => {
+                if (!background || !background.snapshot().ready) return;
+                background.preview.toggle(sample);
+                render();
+            });
+        }
         ui.onClick(row + '_ON', () => set(enabled, !settings.get(enabled)));
         for (const [direction, [axis, delta]] of Object.entries(MOVES)) {
             ui.onClick(row + '_' + direction, () => {
                 const [min, max] = bounds(settings, part, axis), next = position(settings, part, axis) + delta;
-                if (settings.get(enabled) && next >= min && next <= max) set(keys[axis], next);
+                if (adjustable(part) && next >= min && next <= max) set(keys[axis], next);
             });
         }
-        ui.onClick(row + '_RESET', () => { if (settings.get(enabled)) { set(keys[0], base[0]); set(keys[1], base[1]); } });
-        if (slider && slider.on) slider.on('changed', step => { if (settings.get(enabled) && SIZE[step]) set(keys[2], step); });
+        ui.onClick(row + '_RESET', () => { if (adjustable(part)) { set(keys[0], base[0]); set(keys[1], base[1]); } });
+        if (slider && slider.on) slider.on('changed', step => { if (adjustable(part) && SIZE[step]) set(keys[2], step); });
     }
     function render() {
         if (!ui.isVisible('MAIN')) return;
         const state = background ? background.snapshot() : { data: {}, ready: false };
+        if (language.render()) shown.clear();
         const { data } = state;
+        const detail = DETAILS[data.captureDetail];
+        const diagnostic = detail ? t(...detail) : String(data.captureDetail || '').replace(/^exit:/, t('Code ', 'Cod ')).replace(' bytes', t(' bytes', ' octeti'));
         const any = PARTS.some(part => settings.get(part.enabled));
-        const status = !any ? 'Afișare dezactivată' : !state.ready ? 'Așteaptă starea READY' :
-            (STATUS[data.code] || STATUS.idle) + (data.captureDetail ? ' · ' + data.captureDetail : '');
+        const status = !any ? t('Display disabled', 'Afisare dezactivata') : !state.ready ? t('Waiting for READY', 'Asteapta starea READY') :
+            t(...(STATUS[data.code] || STATUS.idle)) + (diagnostic ? ' · ' + diagnostic : '');
         show('text', 'WE_STATUS', status);
-        show('text', 'WE_ETA', data.eta ? etaLabel(data.eta) : 'Sosire estimată · —');
-        show('text', 'WE_MAP_STATUS', state.clusterVisible ? 'Afișaj Waze pe hartă' : 'Așteaptă harta și datele de traseu');
+        show('text', 'WE_ETA', data.eta ? etaLabel(data.eta) : t('Estimated arrival', 'Sosire estimata') + ' · —');
+        show('text', 'WE_MAP_STATUS', state.clusterVisible ? t('Waze overlay on map', 'Afisaj Waze pe harta') :
+            t('Waiting for the cluster map', 'Asteapta harta din bord'));
+        show('text', 'WE_DEMO_STATUS', background && background.preview.current() ?
+            t('Demo active', 'Demo activ') : t('Demo requires READY and standstill', 'Demo disponibil in READY cu masina oprita'));
+        show('enabled', 'WE_DEMO_STOP', !!selected());
         for (const { part, slider } of sections) {
-            const { row } = part, enabled = !!settings.get(part.enabled), step = stepOf(settings, part);
-            show('checked', row + '_ON', enabled);
-            show('text', row + '_POS', 'Poziție · ' + position(settings, part, 0) + ', ' + position(settings, part, 1) + ' px');
+            const { row } = part, enabled = !!adjustable(part), step = stepOf(settings, part);
+            show('checked', row + '_ON', !!settings.get(part.enabled));
+            show('text', row + '_POS', t('Position · ', 'Pozitie · ') + position(settings, part, 0) + ', ' + position(settings, part, 1) + ' px');
             for (const [direction, [axis, delta]] of Object.entries(MOVES)) {
                 const [min, max] = bounds(settings, part, axis), next = position(settings, part, axis) + delta;
                 show('enabled', row + '_' + direction, enabled && next >= min && next <= max);
@@ -247,16 +310,21 @@ function start({ app, ui, settings, background }) {
             show('enabled', row + '_RESET', enabled);
             if (shown.get(row + ':step') !== step) {
                 shown.set(row + ':step', step);
-                ui.cells(row + '_SIZE', 0, { TextDescription: 'Mărime · ' + SIZE[step] + '%' });
+                ui.cells(row + '_SIZE', 0, { TextDescription: t('Size · ', 'Marime · ') + SIZE[step] + '%' });
                 if (slider && slider.setStepValue) slider.setStepValue(step);
                 else ui.cells(row + '_SIZE', 0, { Value: step });
             }
         }
     }
+    function stopDemo() {
+        if (background) background.preview.stop();
+    }
+    ui.onClick('WE_DEMO_STOP', () => { stopDemo(); render(); });
     let timer;
     function visible(open) {
         clearInterval(timer);
         if (open) { shown.clear(); render(); timer = setInterval(render, 1000); }
+        else stopDemo();
     }
     ui.onVisible((name, open) => { if (name === 'MAIN') visible(open); });
     settings.onChange(render);

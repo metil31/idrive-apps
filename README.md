@@ -1,30 +1,18 @@
 # Aplicații iDrive 7 România
 
-O singură sursă MGU Store pentru **Sound Drive în română**, **Speed Limit România**, **HUD România**, **Media HUD România**, **Scaune calde** și **Waze ETA**. Sound Drive Audio apare ca dependență pentru Sound Drive. Aplicațiile se aleg și se instalează separat din aceeași listă.
+O singură sursă MGU Store pentru **Metil's HUD Apps**, **Speed Limit Romania**, **Seat Comfort** și **Waze ETA iOS**. Adaugă `metil31/idrive-apps` și selectează ramura `mgu-romania`. Waze CarPlay Reader este dependența Waze ETA iOS. Aplicațiile cu suprapuneri folosesc [cluster-render](https://github.com/robertnisipeanu/idrive-apps).
 
-În MGU Store, adaugă `metil31/idrive-apps` și selectează ramura `mgu-romania`. Pentru afișarea limitei pe HUD și în instrumentar, Speed Limit România folosește `cluster-render` din [robertnisipeanu/idrive-apps](https://github.com/robertnisipeanu/idrive-apps).
+Interfața pornește în engleză. Schimbă **Language → Romana** din meniul fiecărei aplicații. Interfața română folosește text fără diacritice.
 
-Proiect comunitar independent pentru sisteme BMW compatibile.
+## Metil's HUD Apps
 
-## HUD România
+Semnalizările și avariile, ora sosirii dacă iDrive primește estimări CarPlay, plus titlul și artistul din CarPlay. Media apare pe HUD, pe harta activă din bord sau pe ambele, cu mărime și poziție separate. Coperta albumului este opțională și apare dacă sursa CarPlay furnizează imaginea pe unitate.
 
-Semnalizările și avariile, plus ora sosirii, timpul și distanța rămase dacă iDrive primește valori prin CarPlay. Cu mașina în READY, aplicația rulează în fundal. În Setări, poți muta cele două săgeți împreună pe orizontală și pe verticală și le poți apropia sau depărta. Poziția ETA se reglează separat.
+La actualizarea aplicației HUD, **Show song and artist** este oprit implicit. Dacă **Media HUD Romania** este deja instalată, dezactivează afișarea din aplicația veche înainte să activezi media în cea nouă. Reglajele media se fac în aplicația nouă. [Credite și licențe](projects/sound-drive/apps/hud_romania/NOTICE).
 
-Necesită `cluster-render`. ETA pe Waze cu iPhone depinde de datele de traseu primite de la unitatea BMW. Pagina aplicației arată starea ghidajului, a metadatelor, a furnizorului CarPlay și numărul de destinații primite. [Credite și licențe](projects/sound-drive/apps/hud_romania/NOTICE).
+Cu mașina staționată, folosește demo-urile pentru semnalizări, ETA și media. Demo-ul se oprește la ieșirea din meniu, când mașina se mișcă sau după cel mult 90 de secunde. Pentru mostrele din cluster este necesară o hartă activă în bord.
 
-HUD România afișează ETA din actualizările primite după confirmarea traseului CarPlay. Ascunde estimarea când ghidajul se oprește, sursa își pierde confirmarea sau actualizările expiră.
-
-## Media HUD România
-
-Aplicație separată pentru melodia și artistul din CarPlay. În Setări poți muta textul pe orizontală și verticală. Implicit apare sub poziția de jos a ETA. Se ascunde la pauză sau când se deconectează sursa CarPlay. Pentru a trece de la afișarea integrată în HUD România 0.1.1 la aplicația separată, actualizează mai întâi HUD România la 0.1.2. [Credite și licențe](projects/sound-drive/apps/media_hud_ro/NOTICE).
-
-Din versiunea 0.1.1 poți alege HUD, bord sau ambele. Mărimea și poziția se reglează separat. Pe bord, textul urmează harta activă Maps on cluster, inclusiv în tema care o găzduiește. Opțiunea **Coperta albumului** este dezactivată implicit și citește imaginea JPEG locală dacă iDrive o furnizează pentru piesa curentă.
-
-Din versiunea 0.1.5, aplicația se deschide direct în meniul de reglaje. Butoanele stânga, dreapta, sus și jos mută afișajul cu 10 px la fiecare apăsare, iar mărimea se schimbă cu un cursor în aceeași pagină.
-
-Textul lung este scurtat cu puncte de suspensie. La mărimea maximă, grupul cu titlul, artistul și coperta ocupă cel mult 300 px pe HUD și 375 px pe harta standard din bord. Pe bord, grupul apare pe o pastilă gri-negru semitransparentă. Imaginea din bord este generată la rezoluție dublă și redimensionată cu interpolare biliniară.
-
-## Speed Limit România
+## Speed Limit Romania
 
 În secțiunea HUD, dimensiunea semnului poate fi redusă până la 40 px. Pentru dimensiuni sub 64 px sunt disponibile treptele 40, 48 și 56 px.
 
@@ -42,26 +30,32 @@ Versiunea 1.1.7 aplică limita documentată de 30 km/h pe două segmente din Str
 
 În 1.1.9, „Cedează trecerea” și „STOP” apar și pe harta activă din bord, inclusiv în temele care găzduiesc harta. Avertizările din bord au un comutator propriu, pornit implicit, și folosesc poziția și mărimea semnului de viteză configurate pentru bord. Demo-urile urmează afișajele selectate în aplicație.
 
-## Scaune calde
+În 1.2.0 sunt disponibile și demo-uri pentru semnul de limită și avertizarea de radar, pe afișajele selectate. Butoanele de poziție folosesc pași de 10 px și în bord.
+
+## Seat Comfort
 
 Aplicație separată pentru iDrive 7, cu setările direct pe prima pagină. Selectează scaunele din față, treapta și pragul exterior. Valori inițiale: 8 °C, treapta 2 și ambele scaune. Pornirea automată se activează din meniu.
 
 Aplicația încearcă o singură activare per scaun după trecerea mașinii din starea oprită în READY, cât timp staționezi și temperatura este strict sub prag. Comanda are o durată de trei minute. Dacă oprești încălzirea manual, aplicația nu o pornește din nou în același ciclu.
 
-Versiune experimentală pentru mașini cu traseu de încălzire frontală prin BDC_G05. Pentru fiecare scaun, aplicația verifică starea și repetă verificarea modulului separat la cel puțin 20 de secunde distanță înainte să trimită comanda. Dacă mașina nu confirmă un traseu compatibil, aplicația afișează rezultatul în meniu și lasă scaunul așa cum este. Verificată în simulare. [Referință Heating Comfort](https://github.com/NamelsMissing/mgu-apps/tree/main/apps/g21_wheelheat).
+Versiune experimentală pentru mașini cu traseu de încălzire frontală prin BDC_G05. Pentru fiecare scaun, aplicația verifică starea și repetă verificarea modulului separat la cel puțin 20 de secunde distanță înainte să trimită comanda. Dacă mașina nu confirmă un traseu compatibil, aplicația afișează rezultatul în meniu și lasă scaunul așa cum este. Încălzirea banchetei și ventilația apar ca indisponibile în această versiune. Traseul confirmat în simulare deservește scaunele din față. [Referință Heating Comfort](https://github.com/NamelsMissing/mgu-apps/tree/main/apps/g21_wheelheat).
 
-## Waze ETA
+## Waze ETA iOS
 
 În 0.2.0, citirea pornește automat în starea READY când este activă cel puțin o opțiune de afișare. Lasă Waze în prim-plan pe ecranul central, cu un traseu activ. Ora sosirii, durata și distanța apar într-o pastilă pe HUD sau pe harta activă din bord, cu reglaje independente. După schimbarea ecranului, ultima estimare poate rămâne vizibilă până la două minute de la ultima captură validă.
 
-Manevrele se activează separat pe HUD și pe hartă, cu propriile reglaje de poziție și mărime. În 0.2.1, pe lângă săgețile de stânga și dreapta, un sens giratoriu poate afișa numărul ieșirii într-un cerc, alături de distanță. Citirea este experimentală și confirmă aceeași manevră în două cadre. Simbolul dispare când panoul dispare, când se schimbă manevra sau când expiră informația.
+Manevrele se activează separat pe HUD și pe hartă, cu propriile reglaje de poziție și mărime. În 0.2.1, pe lângă săgețile de stânga și dreapta, un sens giratoriu poate afișa numărul ieșirii într-un cerc, alături de distanță. Citirea este experimentală și confirmă o manevră nouă în două cadre. În 0.2.2, o captură ratată nu ascunde imediat o manevră recent confirmată. Manevra este retrasă la a doua citire ratată, la expirare, la ieșirea din CarPlay sau când se detectează o manevră diferită.
+
+Fiecare afișaj are un demo propriu în meniu. Poți regla poziția și mărimea pentru ETA, stânga, dreapta și giratoriu cu Waze închis pe ecranul central. Demo-ul cere starea READY și viteză zero, iar pe cluster necesită harta activă în bord. Preselectarea benzilor este disponibilă ca mostră. Citirea ei din Waze necesită validarea pe cadre CarPlay care conțin ghidajul de benzi.
+
+Texturile Waze se randează la 3×, iar cele pentru semnalizări, CarPlay ETA din Metil’s HUD Apps și semnele din Speed Limit Romania la 2×. Dimensiunile afișate și reglajele salvate sunt aceleași.
 
 ## Surse și licențe
 
 Fiecare aplicație folosește propriul kit de construire. Versiunile sunt actualizate aici prin importarea și verificarea surselor originale.
 
-- **Sound Drive 1.0.9** și **Sound Drive Audio**, cod MIT. [Upstream Nico1003/sound-drive](https://github.com/Nico1003/sound-drive/tree/b7901d9abc2f69464def12278c81bb8023379224) · [Versiunea română la b42cd42](https://github.com/metil31/sound-drive-ro/tree/b42cd42e7407222bb2c723b74c0e4df31a24f87f) · [Licență](projects/sound-drive/LICENSE).
-- **Speed Limit România 1.1.9**, cod GPL-3.0-or-later, cu notificările MIT ale componentelor preluate. [Upstream hexlay/idrive7-custom-apps](https://github.com/hexlay/idrive7-custom-apps) · [Baza versiunii române la 77b05b0](https://github.com/metil31/idrive7-speed-limit-romania/tree/77b05b0d6bf6aebda431770fd37e3dd2b7ecca1d) · [GPL](projects/speed-limit/LICENSE) · [MIT](projects/speed-limit/LICENSE.MIT) · [Licența graficii indicatoarelor](projects/speed-limit/apps/speed_limit/NOTICE).
+- Codul arhivat pentru **Sound Drive** și **Sound Drive Audio**, MIT. [Upstream Nico1003/sound-drive](https://github.com/Nico1003/sound-drive/tree/b7901d9abc2f69464def12278c81bb8023379224) · [Versiunea română la b42cd42](https://github.com/metil31/sound-drive-ro/tree/b42cd42e7407222bb2c723b74c0e4df31a24f87f) · [Licență](projects/sound-drive/LICENSE).
+- **Speed Limit Romania 1.2.0**, cod GPL-3.0-or-later, cu notificările MIT ale componentelor preluate. [Upstream hexlay/idrive7-custom-apps](https://github.com/hexlay/idrive7-custom-apps) · [Baza versiunii române la 77b05b0](https://github.com/metil31/idrive7-speed-limit-romania/tree/77b05b0d6bf6aebda431770fd37e3dd2b7ecca1d) · [GPL](projects/speed-limit/LICENSE) · [MIT](projects/speed-limit/LICENSE.MIT) · [Licența graficii indicatoarelor](projects/speed-limit/apps/speed_limit/NOTICE).
 
 Datele din harta offline sunt © [contributorii OpenStreetMap](https://www.openstreetmap.org/copyright), licența [ODbL](https://opendatacommons.org/licenses/odbl/1-0/). Baza de date completă este disponibilă ca [romania.pack](projects/speed-limit/apps/speed_limit/romania.pack), cu o [notificare inclusă în pachet](projects/speed-limit/apps/speed_limit/NOTICE). Pachetul folosește [extrasul România de la Geofabrik](https://download.geofabrik.de/europe/romania.html). Codul de generare a hărții este în [pack_sli.py](projects/speed-limit/kit/tools/pack_sli.py).
 
