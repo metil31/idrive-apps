@@ -6,10 +6,7 @@
  *
  * Runs the app's outputs.js (from the sources with the kit beside them, as build.py lays them out; or a built
  * stage) against a socket that speaks cluster-render's
- * protocol 1 (PROTOCOL.md): hello, then the layers, frames, sets, drops and status requests it gets. Checks:
- * the HUD layer and its pixels; no map layer while no other app shows the map; the map layer once the status lists
- * another app's shown layer on "map", hidden when it goes; nothing shown without a limit; the connection closed on
- * stop() (cluster-render removes a client's layers with its connection).
+ * protocol 1 (PROTOCOL.md). Checks independent HUD and full-panel output, movement, redraws, and cleanup.
  */
 const fs = require('fs');
 const net = require('net');
@@ -31,7 +28,7 @@ const { Outputs } = require(path.join(js, 'outputs'));
 const sock = process.platform === 'win32' ? '\\\\.\\pipe\\speed_limit_test_' + process.pid : path.join(os.tmpdir(), 'speed_limit_test_' + process.pid + '.sock');
 
 const got = [];                 // messages the app sent: { t: 'J', m } or { t: 'F', ref, bytes }
-let statusText = 'upload: cap 4000 KB/s\n';
+let offeredTargets = 'map:1088x480,panel:1920x720,hud:800x480';
 let client = null, closed = false;
 const server = net.createServer((s) => {
     client = s;
@@ -46,8 +43,7 @@ const server = net.createServer((s) => {
             if (type === 0x4A) {
                 const m = JSON.parse(body.toString('utf8'));
                 got.push({ t: 'J', m });
-                if (m.op === 'hello') send(s, { ev: 'hello', proto: 1, backend: 'id7', targets: 'map:1088x480,panel:1920x720,hud:800x480' });
-                if (m.op === 'status') send(s, { ev: 'status', text: statusText });
+                if (m.op === 'hello') send(s, { ev: 'hello', proto: 1, backend: 'id7', targets: offeredTargets });
             } else if (type === 0x46) {
                 let alpha = 0;
                 for (let i = 17; i < body.length; i += 4) alpha = Math.max(alpha, body[i]);
@@ -85,67 +81,47 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
     const hx = hud[0] || {};
     check(hx.x >= 0 && hx.x + 88 <= 800 && hx.y >= 0 && hx.y + 88 <= 480, 'HUD layer inside the 800x480 target (' + hx.x + ',' + hx.y + ')');
     check(got.some((g) => g.t === 'F' && g.ref === hx.ref && g.bytes === 176 * 176 * 4), 'HUD pixels sent whole (176x176 RGBA)');
-    check(ops('layer').filter((m) => m.target === 'map').length === 0, 'no map layer while no other app shows the map');
+    const panel = ops('layer').find((m) => m.target === 'panel');
+    check(panel && panel.class === 'overlay' && panel.contend === 0 && panel.exclusive !== 1 &&
+        panel.w === 110 && panel.h === 110 && panel.iw === 220 &&
+        got.some((g) => g.t === 'F' && g.ref === panel.ref), 'panel sign appears with no map or host events');
+    check(!ops('layer').some((m) => m.target === 'map') && !ops('status').length, 'panel needs neither the map slot nor status polling');
 
     const framesBefore = got.filter((g) => g.t === 'F').length;
-    out.update({ limit: 60, inferred: false, over: false }, Date.now());
-    await wait(100);
-    check(got.filter((g) => g.t === 'F').length === framesBefore, 'the same sign is not sent again');
-
-    // Maps on cluster shows its picture on "map": the sign joins it
-    statusText = 'upload: cap 4000 KB/s\ntarget map: slot 0x100 scene 0x10004f0 1088x480: shown\nlayer 4 video of robertn_waze_cluster on map, content z 0: shown\n';
-    out.tick(Date.now());
-    await wait(200);
-    const map = ops('layer').filter((m) => m.target === 'map');
-    check(map.length === 1 && map[0].w === 110 && out.diag().mapBusyBy === 'robertn_waze_cluster', 'map layer once robertn_waze_cluster shows the map');
-
-    // over the limit: new pixels (red sign)
-    const f0 = got.filter((g) => g.t === 'F').length;
-    out.update({ limit: 60, inferred: false, over: true }, Date.now());
-    await wait(150);
-    check(got.filter((g) => g.t === 'F').length === f0 + 2, 'over the limit: both signs drawn again');
-
-    // the phone map goes (its video stalls): the sign leaves the map
-    statusText = 'layer 4 video of robertn_waze_cluster on map, content z 0: stalled - no frames\nlayer 1 image of speed_limit on map, overlay z 20: shown\n';
-    out.tick(Date.now() + 4000);
-    await wait(200);
-    const mref = map[0] && map[0].ref;
-    check(ops('set').some((m) => m.ref === mref && m.visible === 0), 'map layer hidden when the phone map goes (its own layer does not count)');
-
-    const host = { ev: 'host', target: 'map', into: 'panel', shown: 1, x: 440, y: 150, w: 544, h: 240,
-        src_x: 0, src_y: 0, src_w: 1088, src_h: 480 };
-    statusText = 'layer 9 effect of custom_theme on panel, content z 1: shown\nlayer 12 video of phone_map on panel, content z 2: shown\n';
-    send(client, host);
-    await wait(30);
-    out.tick(Date.now());
-    await wait(100);
-    check(out.diag().mapHost === 'panel' && out.diag().panelBy.includes('custom_theme') && !out.diag().mapBusy,
-        'third-party panel and hosted map are reported independently of the standard map');
-    check(!ops('layer').some((m) => m.target === 'panel'), 'a foreign video cannot activate the panel sign');
-    statusText = 'layer 9 effect of custom_theme on panel, content z 1: shown\nlayer 12 video of waze-on-cluster on panel, content z 2: shown\n';
-    out.tick(Date.now() + 3000);
-    await wait(150);
-    const hosted = ops('layer').find((m) => m.target === 'panel');
-    check(hosted && hosted.class === 'overlay' && hosted.contend === 0 && hosted.x === 613 && hosted.y === 325 &&
-        hosted.w === 55 && hosted.h === 55 && hosted.iw === 220 && hosted.ih === 220,
-        'the sign follows the map into the theme, with its size and position scaled to the host');
-    settings.v.clusterX = -180;
     out.update({ limit: 60 }, Date.now());
     await wait(100);
-    check(ops('set').some((m) => m.ref === hosted.ref && m.x === 523), 'saved horizontal adjustments follow the map');
-    settings.v.clusterX = 0;
-    statusText = 'layer 12 video of waze-on-cluster on panel, content z 2: stalled\n';
-    out.tick(Date.now() + 7000);
+    check(got.filter((g) => g.t === 'F').length === framesBefore, 'the same sign is not sent again');
+    out.update({ limit: 80, source: 'waze', over: true }, Date.now());
+    await wait(150);
+    check(got.filter((g) => g.t === 'F').length === framesBefore + 2, 'a Waze-sourced limit redraws both displays with no cluster map');
+
+    settings.v.clusterX = 10;
+    settings.v.clusterY = 10;
+    out.update({ limit: 80, source: 'waze', over: true }, Date.now());
     await wait(100);
-    check(out.diag().panelMapBy === '' && ops('drop').some((m) => m.ref === hosted.ref), 'the hosted sign leaves when the map stalls');
+    check(ops('set').some((m) => m.ref === panel.ref && m.x === panel.x + 10 && m.y === panel.y + 10),
+        'both cluster controls move the sign ten pixels without rebuilding it');
+    settings.v.clusterX = 10000;
+    settings.v.clusterY = 10000;
+    out.update({ limit: 80, source: 'waze', over: true }, Date.now());
+    await wait(100);
+    check(ops('set').some((m) => m.ref === panel.ref && m.x + panel.w === 1920 && m.y + panel.h === 720),
+        'the sign reaches the bottom right of the full panel');
+    settings.v.clusterX = settings.v.clusterY = 0;
+
+    const panelOps = got.length;
+    send(client, { ev: 'host', target: 'map', into: 'panel', shown: 1, x: 440, y: 150, w: 544, h: 240 });
     send(client, { ev: 'host', target: 'map', into: '', shown: 0 });
-    await wait(30);
-    check(out.diag().mapHost === '', 'when the host goes away, the old host is forgotten');
+    send(client, { ev: 'target', target: 'panel', state: 'locked', reason: 'vehicle warning' });
+    await wait(100);
+    check(got.length === panelOps && out.diag().targets.panel.state === 'locked',
+        'map changes leave the sign in place and panel locks are handled by the renderer');
 
     // no limit: the HUD layer is hidden too
     out.update(null, Date.now());
     await wait(100);
     check(ops('set').some((m) => m.ref === hx.ref && m.visible === 0), 'no limit: HUD layer hidden');
+    check(ops('set').some((m) => m.ref === panel.ref && m.visible === 0), 'no limit: panel layer hidden');
 
     // settings: kept over BMW's pop-ups; the HUD sign moved; then "cluster": the HUD sign hidden
     settings.v.hudKeep = true;
@@ -161,9 +137,6 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
     out.update({ limit: 90, inferred: true, over: false }, Date.now());
     await wait(100);
     check(ops('set').filter((m) => m.ref === hx.ref && m.visible === 0).length === hiddenBefore + 1, '"Cluster": HUD sign hidden');
-
-    // never the panel (the whole-cluster slot BMW's trip and board computer content uses)
-    check(ops('layer').filter((m) => m.target === 'panel').length === 1, 'the panel was used only inside the hosted map');
 
     // a speed camera ahead: the pill joined to the sign, a wider picture; resent only when the distance step changes
     settings.v.show = 'both';
@@ -201,10 +174,7 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
         got.some((g) => g.t === 'F' && g.ref === small.ref && g.bytes === small.iw * small.ih * 4),
     '40 px HUD sign keeps its centre and sends the attached camera badge');
 
-    statusText = 'layer 4 video of robertn_waze_cluster on map, content z 0: shown\n';
-    out.tick(Date.now() + 20000);
-    await wait(150);
-    const mapSign = ops('layer').filter((m) => m.target === 'map' && m.z === 20).slice(-1)[0];
+    const panelSign = ops('layer').filter((m) => m.target === 'panel' && m.z === 20).slice(-1)[0];
     const beforeAlert = got.length;
     out.setJunction({ kind: 'yield', metres: 60, demo: true }, Date.now());
     await wait(560);
@@ -217,10 +187,10 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
         ops('set').some((m) => m.ref === small.ref && m.visible === 0), 'speed sign fades out and priority sign fades in');
     check(got.slice(beforeAlert).filter((g) => g.t === 'F' && g.ref === priority.ref).length === 1,
         'fading does not repeatedly upload the doubled texture');
-    const clusterAlert = ops('layer').find((m) => m.target === 'map' && m.z === 21);
-    check(clusterAlert && clusterAlert.x + clusterAlert.w === mapSign.x + mapSign.w && clusterAlert.y === mapSign.y &&
+    const clusterAlert = ops('layer').find((m) => m.target === 'panel' && m.z === 21);
+    check(clusterAlert && clusterAlert.x + clusterAlert.w === panelSign.x + panelSign.w && clusterAlert.y === panelSign.y &&
         faded(clusterAlert.ref).slice(-1)[0] === 1 &&
-        ops('set').some((m) => m.ref === mapSign.ref && m.visible === 0),
+        ops('set').some((m) => m.ref === panelSign.ref && m.visible === 0),
         'priority alert takes the cluster speed sign position and fades it out');
     settings.v.hudX += 10;
     out.setJunction({ kind: 'stop', metres: 40, demo: true }, Date.now());
@@ -233,34 +203,30 @@ const ops = (op) => got.filter((g) => g.t === 'J' && g.m.op === op).map((g) => g
         ops('set').some((m) => m.ref === small.ref && m.visible === 1), 'the speed sign fades back after the alert');
 
     check(ops('drop').some((m) => m.ref === clusterAlert.ref) &&
-        ops('set').some((m) => m.ref === mapSign.ref && m.visible === 1), 'cluster speed sign returns after the alert');
+        ops('set').some((m) => m.ref === panelSign.ref && m.visible === 1), 'cluster speed sign returns after the alert');
 
     settings.v.junctionCluster = true;
     settings.v.junctionHud = false;
     settings.v.clusterX = 10;
     out.setJunction({ kind: 'stop', metres: 30 }, Date.now());
     await wait(560);
-    const mapOnly = ops('layer').filter((m) => m.z === 21).slice(-1)[0];
-    check(mapOnly.target === 'map' && mapOnly.x + mapOnly.w === clusterAlert.x + clusterAlert.w + 10 &&
+    const panelOnly = ops('layer').filter((m) => m.z === 21).slice(-1)[0];
+    check(panelOnly.target === 'panel' && panelOnly.x + panelOnly.w === clusterAlert.x + clusterAlert.w + 10 &&
         ops('layer').filter((m) => m.target === 'hud' && m.z === 21).length === 1,
         'cluster toggle and position work independently of the HUD');
-    statusText = 'layer 12 video of waze-on-cluster on panel, content z 2: shown\n';
-    send(client, host);
-    await wait(50);
-    out.tick(Date.now() + 20000);
-    await wait(170);
-    const panelAlert = ops('layer').filter((m) => m.z === 21).slice(-1)[0];
-    check(panelAlert.target === 'panel' && panelAlert.h === 55 &&
-        ops('drop').some((m) => m.ref === mapOnly.ref), 'priority alert follows the map into the hosted panel');
-    statusText = 'layer 12 video of waze-on-cluster on panel, content z 2: stalled\n';
-    out.tick(Date.now() + 40000);
-    await wait(150);
-    check(ops('drop').some((m) => m.ref === panelAlert.ref), 'priority alert leaves when the hosted map stops');
-
     out.stop();
     await wait(200);
-    // (cluster-render removes a client's layers with its connection: the close is what gives the HUD and map back)
-    check(closed && out.diag().hud === 'none' && out.diag().map === 'none', 'stop(): connection closed, no layers kept');
+    check(closed && out.diag().hud === 'none' && out.diag().cluster === 'none', 'stop(): connection closed, no layers kept');
+
+    offeredTargets = 'map:1088x480,hud:800x480';
+    got.length = 0;
+    const unsupported = new Outputs('speed_limit', log, settings, { cr: { path: sock, check: false } }).start();
+    await wait(100);
+    unsupported.update({ limit: 60 });
+    await wait(150);
+    check(!unsupported.diag().panelAvailable && ops('layer').length === 1 && ops('layer')[0].target === 'hud',
+        'a renderer without the full panel still gets the HUD sign');
+    unsupported.stop();
     server.close();
     if (fails) { console.log('\n' + fails + ' failed'); process.exit(1); }
     console.log('\nok');

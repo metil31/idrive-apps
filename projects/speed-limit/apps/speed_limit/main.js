@@ -1,6 +1,6 @@
 'use strict';
 /**
- * Speed Limit - the speed limit of the road the car is on, on the cluster's map and the head-up display, from an
+ * Speed Limit - the speed limit of the road the car is on, on the instrument cluster and the head-up display, from an
  * offline OpenStreetMap pack (romania.pack, kit/tools/pack_sli.py). Read only: it subscribes to the car's position,
  * speed and power state and writes nothing to any unit.
  *
@@ -173,7 +173,7 @@ class Engine {
 
     _tick() {
         const now = Date.now();
-        if (!this.demo) { this.position.poll(now); this.outputs.tick(now); } else this.outputs.tick(now);
+        if (!this.demo) this.position.poll(now);
         this.fix = this.demo ? this.demo.fix(now) : this.position.fix(now);
         this.speed = this.demo ? this.demo.speedKmh(now) : this.position.speedKmh(now);
         const alerts = this.junctionAvailable(true);
@@ -342,7 +342,7 @@ async function background(bg) {
 /* ---------- the page: the HMI's own list, laid out as Maps on cluster's (app.json screen "menu") ----------
  * General: Show on (Cluster, HUD, Cluster and HUD, Off), Red sign over the limit, When there's no limit (nothing, or
  * "---" as BMW's own), Speed cameras (Warn: a pill with the camera's distance joined to the sign; Off), Speed limit.
- * Cluster (on the phone map, Maps on cluster's): Cluster sign, Size (a slider), Position with Move left / right / up /
+ * Cluster (full panel): Cluster sign, Size (a slider), Position with Move left / right / up /
  * down and Default position.
  * HUD: HUD sign, Keep HUD sign over BMW's pop-ups, Size, Position, the moves and Default position.
  * This road: what the map says of the road the car is on, Correct its limit (Use the map, 20 ... 130 km/h), how many
@@ -358,12 +358,12 @@ const FIXV = [0, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130];
 // The slider sizes in step order, and the move step on each target.
 const SIZES = {
     hud: [40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144],
-    map: [70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180],
+    panel: [70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 180],
 };
-const STEP = { hud: 10, map: 10 };
-/** A section's place: the HUD's, or the cluster's (the phone map). */
+const STEP = { hud: 10, panel: 10 };
+/** A section's place: the HUD's, or the cluster's (full panel). */
 function placeOf(k) {
-    const target = k === 'hud' ? 'hud' : 'map', T = TARGETS[target];
+    const target = k === 'hud' ? 'hud' : 'panel', T = TARGETS[target];
     return { target, show: k, size: T.size, x: T.x, y: T.y, def: T.def, sizes: SIZES[target], step: STEP[target], row: k === 'hud' ? 'SL_HUD' : 'SL_CL' };
 }
 
@@ -390,7 +390,7 @@ function signState(e, surface, t) {
     if (show !== surface && show !== 'both') return t('Off', 'Dezactivat');
     if (!e.active) return e.enabled() ? t('Car off', 'Masina oprita') : t('Off', 'Dezactivat');
     if (!o.connected) return t('Renderer unavailable', 'Renderer indisponibil');
-    if (surface === 'cluster' && !o.mapBusy && !o.panelMapBy) return t('Waiting for the cluster map', 'Asteapta harta din bord');
+    if (surface === 'cluster' && !o.panelAvailable) return t('Cluster panel unavailable', 'Panoul de bord indisponibil');
     const alert = e.junctionDemo || e.junction;
     if (alert && (alert.demo || e.settings.get(surface === 'cluster' ? 'junctionCluster' : 'junctionHud') === true)) {
         if (alert.kind === 'limit') return t('Demo speed limit', 'Demo limita de viteza');
@@ -413,11 +413,10 @@ function clusterRoute(e, t) {
     const show = e.settings.get('show'), prefix = t('Cluster: ', 'Bord: ');
     if (show !== 'cluster' && show !== 'both') return prefix + t('display disabled', 'afisare dezactivata');
     if (!o.connected) return prefix + t('renderer disconnected', 'renderer deconectat');
-    if (o.mapHost) return prefix + t('map hosted in ', 'harta mutata in ') + o.mapHost;
-    if (!o.statusAt) return prefix + t('waiting for renderer status', 'asteapta starea rendererului');
-    if (o.panelBy.length && o.mapBusy) return prefix + t('map and separate panel', 'harta si panou separat') + ' (' + o.panelBy[0] + ')';
-    if (o.panelBy.length) return prefix + t('panel without separate map', 'panou fara harta separata') + ' (' + o.panelBy[0] + ')';
-    return prefix + (o.mapBusy ? t('map in standard area', 'harta in zona standard') : t('no visible map', 'fara harta vizibila'));
+    if (!o.panelAvailable) return prefix + t('full panel unavailable', 'panou complet indisponibil');
+    const panel = o.targets.panel;
+    if (panel && panel.state === 'shown') return prefix + t('full panel active', 'panou complet activ');
+    return prefix + t('full panel selected', 'panou complet selectat');
 }
 
 function posText(x, y, t) {

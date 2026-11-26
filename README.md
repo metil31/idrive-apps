@@ -16,7 +16,7 @@ The menus default to English. Select **Language → Romana** for Romanian withou
 | --- | --- | --- |
 | **Metil's HUD Apps** | 0.2.3 | Turn signals, native CarPlay ETA, and now-playing information |
 | **Waze ETA iOS** | 0.3.1 | Waze ETA, turns, roundabout exit number, lane guidance and forks |
-| **Speed Limit Romania** | 1.3.1 | Offline speed limits, cameras and priority signs, with an optional Waze limit |
+| **Speed Limit Romania** | 1.3.2 | Offline speed limits, cameras and priority signs, with an optional Waze limit |
 | **Seat Comfort** | 0.1.2 | Automatic front-seat heating at a cold start |
 | **Waze CarPlay Reader** | 0.3.1 | Shared capture tool for Waze ETA iOS and the optional Speed Limit Romania source |
 
@@ -34,7 +34,7 @@ The capture reads the **centre display**. The separate cluster video can remain 
 
 ## Speed Limit Romania
 
-The offline map provides speed limits and advance alerts for cameras, STOP and Give way. You can correct a particular road manually from the menu. The HUD speed sign can be as small as 40 px. The cluster overlay follows a compatible map into a hosted theme panel and leaves when that map stops. Priority signs briefly replace the speed sign in the same position. Their HUD and cluster switches are independent. Demos cover the speed sign, camera, STOP and Give way.
+The offline map provides speed limits and advance alerts for cameras, STOP and Give way. You can correct a particular road manually from the menu. The HUD speed sign can be as small as 40 px. The cluster overlay uses the iDrive 7 full panel (1920 × 720) with or without a map in the cluster. Use the movement controls to adjust the position in 10 px steps. While the panel is visible, iDrive can hide its stock cluster media widget. BMW display arbitration may temporarily hide the overlay during a vehicle warning. Priority signs briefly replace the speed sign in the same position. Their HUD and cluster switches are independent. Demos cover the speed sign, camera, STOP and Give way.
 
 To try the experimental supplement, set Waze on the iPhone to always show the speed limit next to its speedometer. Start a route, then select one of the following options in **Speed Limit Romania → Waze speed limit**. [Waze speedometer settings](https://support.google.com/waze/answer/6386895/get-speed-limit-alerts?hl=en-GB)
 
