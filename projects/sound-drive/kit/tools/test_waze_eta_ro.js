@@ -362,14 +362,14 @@ async function testHud() {
     assert.ok(firstEta.regions && firstEta.bytes < targets[1].iw * targets[1].ih * 4);
     const glass = frames.get(2);
     const pixel = (x, y) => Array.from(glass.subarray((y * targets[1].iw + x) * 4, (y * targets[1].iw + x) * 4 + 4));
-    assert.deepStrictEqual(pixel(etaEdges.left + 32, 75), [0, 0, 0, 24], 'the bar only dims the map slightly');
+    assert.deepStrictEqual(pixel(etaEdges.left + 32, 75), [0, 0, 0, 74], 'the bar dims the map with a neutral translucent fill');
     for (const y of [9, 12, 14, 180, 182]) {
         const [r, g, b, alpha] = pixel(targets[1].iw / 2, y);
-        assert.ok(r === 0 && g === 0 && b === 0 && alpha <= 24, 'the bar has no contrasting outline or highlight');
+        assert.ok(r === 0 && g === 0 && b === 0 && alpha <= 74, 'the bar has no contrasting outline or highlight');
     }
     const edgeAlpha = [8, 14, 22, 30].map(y => pixel(targets[1].iw / 2, y)[3]);
     assert.strictEqual(edgeAlpha[0], 0);
-    assert.strictEqual(edgeAlpha[3], 24);
+    assert.strictEqual(edgeAlpha[3], 74);
     assert.ok(edgeAlpha.every((alpha, i) => !i || alpha > edgeAlpha[i - 1]), 'the background fades in over five pixels');
     assert.ok(glass.some((value, i) => i % 4 === 0 && value === 255 && glass[i + 3] === 255), 'the white text stays opaque');
     assert.ok(etaEdges.width < targets[1].iw - 40 && turnEdges.width < targets[2].iw - 40,
