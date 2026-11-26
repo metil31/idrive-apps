@@ -23,6 +23,7 @@ const path = require('path');
 const mgu = require('./kit/mgu');
 const Car = require('./kit/car');
 const { menuLanguage } = require('./kit/menu-language');
+const { WazeLimit, chooseWazeLimit } = require('./waze-limit');
 const { LimitPack } = require('./limitpack');
 const { Matcher } = require('./matcher');
 const { Position, DemoDrive } = require('./position');
@@ -34,6 +35,7 @@ const { Junctions, DEMO, demoAllowed } = require('./junctions');
 const JUNCTION_DATA = require('./junctions-data');
 
 const APP_ID = 'speed_limit';
+const WAZE_MODES = ['offline', 'uncertain', 'prefer'];
 const PACK = path.join(__dirname, 'romania.pack');
 const TICK_MS = 500;            // driving: twice a second
 const STILL_MS = 2000;          // standing still (a light, a jam): every 2 s
@@ -59,6 +61,7 @@ class Engine {
         this.drive = { key: '', minute: 0, n: 0 };   // the drive log's last line and its lines this minute
         this.position = new Position(this.signals, this.log);
         this.outputs = new Outputs(APP_ID, this.log, this.settings);
+        this.waze = new WazeLimit();
         this.demoOn = this.settings.get('demo') === 'on';   // the PC's emulator and preview; never set in a car
         this.demo = null;
         this.condition = undefined;
@@ -79,6 +82,7 @@ class Engine {
         this.listeners = [];
         this.settings.onChange((k) => {
             if (k === 'show') this._evaluate();
+            if (k === 'wazeLimit') this.waze.reset();
             if (/^def/.test(k) && this.matcher) this.matcher.setDefaults(this.defaults());
             if (this.active) {
                 const now = Date.now();
@@ -87,6 +91,7 @@ class Engine {
                     this.junction = null;
                     this.junctions.update(null, null);
                 }
+                if (k === 'wazeLimit') this._decide(now);
                 this._show(now);
             }
             this._changed();
@@ -148,6 +153,7 @@ class Engine {
             clearTimeout(this.timer); this.timer = null;
             this.position.stop().catch(() => {});
             this.outputs.stop();
+            this.waze.reset();
             if (this.pack) this.pack.close();
             this.pack = null; this.matcher = null; this.demo = null; this.cams = null; this.camera = null;
             this.junctions = this.junction = this.junctionDemo = null;
@@ -175,6 +181,12 @@ class Engine {
         if (!this._still() || approaching) this.res = this.matcher.update(this.fix, now);
         // a speed camera ahead (setting "cameras"): a few multiplications per camera near the car
         this.camera = this.cams && this.settings.get('cameras') !== 'off' ? this.cams.update(this.fix, this.matcher.heading, now) : null;
+        const r = this.res, wazeMode = this.settings.get('wazeLimit');
+        if ((wazeMode === 'uncertain' || wazeMode === 'prefer') && this.condition === 10 && !this.demo) {
+            const road = r && r.state === 'match' && r.way && r.dir && this.fix && this.fix.age <= 2500 ?
+                r.way + ':' + r.dir : '';
+            this.waze.tick(now, road);
+        } else if (this.waze.road || this.waze.due) this.waze.reset();
         this._decide(now);
         const live = approaching && this.fix && this.fix.age <= 2500;
         this.junction = this.junctions.update(live ? this.fix : null, this.res);
@@ -212,7 +224,7 @@ class Engine {
     /** The drive log: a line when the road, its limit or what is shown changes (a few a minute), for a report. */
     _driveLog(now) {
         const r = this.res, v = this.view, f = this.fix;
-        const lim = (o) => (o && o.limit ? o.limit + (o.corrected ? 'c' : o.inferred ? 'd' : '') : '-');
+        const lim = (o) => (o && o.limit ? o.limit + (o.corrected ? 'c' : o.source === 'waze' ? 'w' : o.inferred ? 'd' : '') : '-');
         const key = (r ? r.state + ' way ' + (r.way || '-') + ' ' + lim(r) : 'none') + ' shown ' + lim(v) + (v && v.camera ? ' cam' : '');
         if (key === this.drive.key) return;
         const minute = Math.floor(now / 60000);
@@ -299,10 +311,13 @@ class Engine {
         // send its pixels) again and again
         const wasOver = !!(this.view && this.view.over);
         const over = (lim) => thr > 0 && this.speed !== null && lim > 0 && this.speed > lim + thr - (wasOver ? 2 : 0);
-        if (r && r.limit && !(r.inferred && s.get('untagged') === 'hide')) {
+        const waze = chooseWazeLimit(this.waze.value(now), s.get('wazeLimit'), r);
+        if (waze) {
+            this.view = { limit: waze, source: 'waze', inferred: false, over: over(waze) };
+        } else if (r && r.limit && !(r.inferred && s.get('untagged') === 'hide')) {
             this.view = { limit: r.limit, inferred: r.inferred, over: over(r.limit), corrected: !!r.corrected };
             this.viewAt = now;
-        } else if (!(r && r.state === 'match') && this.view && this.view.limit && now - this.viewAt < VIEW_HOLD_MS) {
+        } else if (!(r && r.state === 'match') && this.view && this.view.limit && this.view.source !== 'waze' && now - this.viewAt < VIEW_HOLD_MS) {
             this.view = { limit: this.view.limit, inferred: this.view.inferred, over: over(this.view.limit), corrected: this.view.corrected };
         } else if (s.get('noLimit') === 'dashes') {
             this.view = { limit: null, unknown: true, inferred: false, over: false };     // "---", as BMW's own
@@ -357,6 +372,10 @@ function limitText(e, t) {
     if (e.packError) return prefix + t('no map', 'harta indisponibila');
     if (!e.active) return prefix + (e.enabled() ? t('car off', 'masina oprita') : t('off', 'dezactivata'));
     const cam = v && v.camera ? t(', speed camera in ', ', radar in ') + v.camera : '';
+    if (v && v.source === 'waze') {
+        const offline = r && r.limit ? ' · ' + t('Offline ', 'Offline ') + r.limit + ' km/h' : '';
+        return prefix + v.limit + ' km/h · Waze' + offline + cam;
+    }
     if (v && v.limit) return prefix + v.limit + ' km/h' + (v.inferred ? t(' (road default)', ' (implicita pentru drum)') : '') + cam;
     if (r && r.variable) return t('Variable or conditional limit', 'Limita variabila sau conditionata') + cam;
     if (r && r.uncertain) return t('Limit varies by direction', 'Limita difera in functie de sensul de mers') + cam;
@@ -469,6 +488,12 @@ mgu.run({
             const cams = Math.max(0, CAMS.indexOf(s.get('cameras')));
             once('cams', cams, () => ui.selected('SL_CAMS', cams));
             once('limit', lim, () => ui.text('SL_LIMIT', lim));
+            const wazeMode = Math.max(0, WAZE_MODES.indexOf(s.get('wazeLimit')));
+            once('wazeMode', wazeMode, () => ui.selected('SL_WAZE', wazeMode));
+            const reading = wazeMode && engine.waze.value(Date.now());
+            const wazeStatus = !wazeMode ? t('Waze: off', 'Waze: dezactivat') : reading ?
+                'Waze: ' + reading + ' km/h' : t('Waze: waiting for a confirmed limit', 'Waze: asteapta o limita confirmata');
+            once('wazeStatus', wazeStatus, () => ui.text('SL_WAZE_STATUS', wazeStatus));
             once('keep', !!s.get('hudKeep'), () => ui.checked('SL_HUD_KEEP', !!s.get('hudKeep')));
             once('map', mapText(engine, t), () => ui.text('SL_MAP', mapText(engine, t)));
             // this road and its correction
@@ -505,6 +530,7 @@ mgu.run({
         }
 
         // the HMI moves a drop-down's choice and the slider itself: only the setting follows
+        ui.onClick('SL_WAZE', (ev) => { if (WAZE_MODES[ev.row]) s.set('wazeLimit', WAZE_MODES[ev.row]); });
         ui.onClick('SL_SHOW', (ev) => { const v = SHOW[ev.row]; if (v) { done.show = ev.row; s.set('show', v); } });
         ui.onClick('SL_OVER', (ev) => { const v = OVER[ev.row]; if (v != null) { done.over = ev.row; s.set('overspeed', v); } });
         ui.onClick('SL_NOLIMIT', (ev) => { const v = NOLIMIT[ev.row]; if (v) { done.nolim = ev.row; s.set('noLimit', v); } });

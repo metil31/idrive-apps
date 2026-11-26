@@ -44,7 +44,11 @@ const DEMO_TURNS = [
     { kind: 'right', distance: '530 m', demo: true },
     { kind: 'left', distance: '70 m', demo: true },
     { kind: 'roundabout', exit: 2, distance: '100 m', demo: true },
-    { kind: 'lanes', distance: '700 m', demo: true },
+    { kind: 'lanes', distance: '700 m', demo: true, lanes: [
+        { kind: 'straight', active: true }, { kind: 'straight', active: true }, { kind: 'right', active: false },
+    ] },
+    { kind: 'fork-left', distance: '250 m', demo: true },
+    { kind: 'fork-right', distance: '250 m', demo: true },
 ];
 
 function request(command) {
@@ -99,50 +103,67 @@ function placement(settings, part, area, hosted) {
 
 function etaLabel(eta) { return eta.arrival + '  ·  ' + eta.duration + '  ·  ' + eta.distance; }
 
+function drawFork(cv, x, y, left) {
+    const dir = left ? -1 : 1;
+    cv.polyline([[x, y + 3], [x - 8 * dir, y - 5], [x - 8 * dir, y - 13]], 3, '#838a93');
+    cv.polyline([[x, y + 13], [x, y + 3], [x + 9 * dir, y - 10]], 4, '#ffffff');
+    cv.polyline([[x + 2 * dir, y - 9], [x + 10 * dir, y - 11], [x + 11 * dir, y - 3]], 3, '#ffffff');
+}
+
+function drawLanes(cv, lanes, cx, y, width) {
+    const step = Math.min(16, width / lanes.length);
+    const first = cx - step * (lanes.length - 1) / 2;
+    lanes.forEach((lane, index) => {
+        const x = first + step * index, stem = lane.active ? '#ffffff' : '#838a93';
+        const split = lane.kind.startsWith('straight-');
+        if (lane.kind === 'straight' || split) {
+            cv.polyline([[x, y + 9], [x, y - 3], [x - 2.5, y]], 1.6, stem);
+            cv.polyline([[x, y - 3], [x + 2.5, y]], 1.6, stem);
+        }
+        if (lane.kind !== 'straight') {
+            const dir = lane.kind.endsWith('left') ? -1 : 1;
+            const color = (split ? lane.branch : lane.active) ? '#ffffff' : '#838a93';
+            const end = x + dir * Math.min(4, step * 0.34);
+            cv.polyline([[x, y + 9], [x, y + 5], [end, y + 1]], 1.6, color);
+            cv.polyline([[end - dir * 3, y + 1], [end, y + 1], [end, y + 4]], 1.6, color);
+        }
+    });
+}
+
 function drawOverlay(part, value) {
     const { w, h } = part;
     const cv = new ScaledCanvas(w, h, TEXTURE_SCALE);
     cv.clear();
-    const lanes = value.kind === 'lanes';
+    const lanes = value.lanes;
     const text = part.turn ? (value.demo ? 'Demo ' : '') + value.distance : (value.demo ? 'Demo  ' : '') + etaLabel(value);
     const style = { align: 'center', font: 'bold', literal: true };
-    const padding = 9, iconWidth = 28, leading = part.turn ? iconWidth + 8 : 0;
+    const padding = 9, iconWidth = 28, leading = part.turn && value.kind !== 'lanes' ? iconWidth + 8 : 0;
     const maxTextWidth = w - 2 * padding - leading - 2;
     const baseSize = 18;
     const size = Math.min(baseSize, baseSize * maxTextWidth / Math.max(1, cv.textWidth(text, baseSize, style)));
-    const bodyWidth = Math.min(maxTextWidth, Math.max(lanes ? 50 : 0, Math.ceil(cv.textWidth(text, size, style))));
+    const bodyWidth = Math.min(maxTextWidth, Math.max(lanes ? lanes.length * 10 : 0, Math.ceil(cv.textWidth(text, size, style))));
     const cardWidth = 2 * padding + leading + bodyWidth;
     // Keep the layer and its anchor stable as the numbers change.
     const left = (w - cardWidth) / 2, y = h / 2;
     const iconCenter = left + padding + iconWidth / 2;
     const textCenter = left + padding + leading + bodyWidth / 2;
     cv.roundRect(left, 1, cardWidth, h - 2, 7, [24, 27, 31, 207]);
-    if (lanes) {
-        const center = textCenter;
-        cv.polyline([[iconCenter, y + 13], [iconCenter, y - 13], [iconCenter - 6, y - 6]], 3.5, '#ffffff');
-        cv.polyline([[iconCenter, y - 13], [iconCenter + 6, y - 6]], 3.5, '#ffffff');
-        for (const [i, x] of [center - 18, center, center + 18].entries()) {
-            const color = i === 2 ? '#838a93' : '#ffffff';
-            const endX = i === 2 ? x + 5 : x, endY = y + 4;
-            cv.polyline([[x, y + 15], [x, endY + 5], [endX, endY]], 2, color);
-            const corners = i === 2 ? [[endX - 4, endY], [endX, endY + 5]] :
-                [[endX - 3, endY + 4], [endX + 3, endY + 4]];
-            cv.polyline([corners[0], [endX, endY], corners[1]], 2, color);
-            if (i < 2) cv.polyline([[x + 9, endY + 1], [x + 9, y + 15]], 1, '#565d66');
-        }
+    if (part.turn && value.kind.startsWith('fork-')) {
+        drawFork(cv, iconCenter, y, value.kind === 'fork-left');
     } else if (part.turn && value.kind === 'roundabout') {
         const x = iconCenter;
         cv.arc(x, y, 10, 13, 0, 360, '#7a8188');
         cv.arc(x, y, 9, 13, 20, 284, '#ffffff');
         cv.polyline([[x - 10, y + 6], [x - 10, y + 15]], 4, '#ffffff');
         cv.text(String(value.exit), x, y + 5, 15, '#ffffff', { align: 'center', font: 'bold', literal: true });
-    } else if (part.turn) {
+    } else if (part.turn && value.kind !== 'lanes') {
         const x = n => iconCenter + (value.kind === 'right' ? n - 12 : 12 - n);
         const top = y - 13;
         cv.polyline([[x(0), top + 24], [x(0), top + 15], [x(3), top + 9], [x(9), top + 5], [x(23), top + 5]], 4, '#ffffff');
         cv.polyline([[x(17), top], [x(23), top + 5], [x(17), top + 10]], 4, '#ffffff');
     }
     cv.text(text, textCenter, lanes ? y - 2 : y + size * 0.34, size, '#ffffff', style);
+    if (lanes) drawLanes(cv, lanes, textCenter, y + 6, bodyWidth);
     const pixels = cv.canvas.d;
     return Buffer.from(pixels.buffer, pixels.byteOffset, pixels.byteLength);
 }
@@ -222,7 +243,7 @@ function background({ app, settings, signals, log }) {
                 layers.set(part, layer = { ref, target, shape });
             } else if (shape !== layer.shape) { client.set(layer.ref, rect); layer.shape = shape; }
             const value = values.get(part);
-            const key = (value.demo ? 'demo:' : '') + (part.turn ? [value.kind, value.exit, value.distance].join(':') : etaLabel(value));
+            const key = (value.demo ? 'demo:' : '') + (part.turn ? [value.kind, value.exit, value.distance, JSON.stringify(value.lanes)].join(':') : etaLabel(value));
             if (layer.key !== key && client.pixels(layer.ref, null, drawOverlay(part, value))) layer.key = key;
         }
     }

@@ -2,7 +2,7 @@
   "id": "waze_eta_ro",
   "title": "Waze ETA iOS",
   "description": "Waze arrival time and maneuvers on the HUD and cluster map.",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "language": "en",
   "license": "MIT",
   "vendor": "custom",
@@ -10,7 +10,7 @@
   "mguHmi": ["ID7"],
   "autostart": true,
   "requires": {
-    "waze-eta-reader": "0.2.2",
+    "waze-eta-reader": "0.3.0",
     "cluster-render": "0.3.7"
   },
   "signals": {
@@ -63,6 +63,8 @@
         ["button", "WE_TH_DEMO1", "Demo left turn"],
         ["button", "WE_TH_DEMO2", "Demo roundabout"],
         ["button", "WE_TH_DEMO3", "Demo lane guidance"],
+        ["button", "WE_TH_DEMO4", "Demo keep left"],
+        ["button", "WE_TH_DEMO5", "Demo keep right"],
         ["header", "WE_TC_HEAD", "Maneuvers on cluster map (experimental)"],
         ["checkbox", "WE_TC_ON", "Show maneuvers on map"],
         ["slider", "WE_TC_SIZE", "Size", 6],
@@ -75,7 +77,9 @@
         ["button", "WE_TC_DEMO0", "Demo right turn"],
         ["button", "WE_TC_DEMO1", "Demo left turn"],
         ["button", "WE_TC_DEMO2", "Demo roundabout"],
-        ["button", "WE_TC_DEMO3", "Demo lane guidance"]
+        ["button", "WE_TC_DEMO3", "Demo lane guidance"],
+        ["button", "WE_TC_DEMO4", "Demo keep left"],
+        ["button", "WE_TC_DEMO5", "Demo keep right"]
       ]
     }
   ],
@@ -158,7 +162,11 @@
       "WE_TC_RESET": ["Pozitie implicita"],
       "APP_LANGUAGE": ["Limba", ["English", "Romana"]],
       "WE_TH_DEMO3": ["Demo preselectare benzi"],
-      "WE_TC_DEMO3": ["Demo preselectare benzi"]
+      "WE_TH_DEMO4": ["Demo tine stanga"],
+      "WE_TH_DEMO5": ["Demo tine dreapta"],
+      "WE_TC_DEMO3": ["Demo preselectare benzi"],
+      "WE_TC_DEMO4": ["Demo tine stanga"],
+      "WE_TC_DEMO5": ["Demo tine dreapta"]
     }
   }
 }

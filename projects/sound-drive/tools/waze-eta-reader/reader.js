@@ -3,55 +3,85 @@
 const fs = require('fs');
 const net = require('net');
 const { execFile } = require('child_process');
-const { model, readEta, readTurn } = require('./ocr');
+const { model, readEta, readTurn, readSpeedLimit, hasWazeDock } = require('./ocr');
 const FONT = require('./eta-atlas.json');
 const INTERVAL = 4000;
 const KEEP = 120000;
 const TURN_KEEP = 9500;
 const LEASE = 12000;
+const LIMIT_KEEP = 6500;
 const START_WINDOW = 45000;
 const FRAME = '/run/waze-eta-reader/frame.rgb';
 const SOCKET = '/run/waze-eta-reader/control.sock';
 const SIZES = [[1920, 720], [1280, 480], [1440, 540], [960, 360]];
 
 function state(now) {
-    let end = 0, front = null, bootstrap = 0, generation = 0, guidance = false;
+    const ends = { navigation: 0, limit: 0 };
+    let front = null, bootstrap = 0, generation = 0, guidance = false;
     let last = null, candidate = null, code = 'idle';
     let lastTurn = null, candidateTurn = null, missedTurn = false;
-    const clearTurn = () => { lastTurn = candidateTurn = null; missedTurn = false; };
-    const active = () => now() < end;
+    let candidateLanes = '';
+    const clearTurn = () => { lastTurn = candidateTurn = null; missedTurn = false; candidateLanes = ''; };
+    let lastLimit = null, candidateLimit = null;
+    const clearLimit = () => { lastLimit = candidateLimit = null; };
+    const leased = (channel) => now() < ends[channel];
+    const active = () => leased('navigation') || leased('limit');
     const canCapture = () => front === true || (front === null && (guidance || now() < bootstrap));
     return {
-        start() {
+        start(channel = 'navigation') {
             if (!active()) {
                 bootstrap = now() + START_WINDOW;
                 if (front === false) front = null;
                 generation++; last = null; candidate = null; code = 'waiting';
-                clearTurn();
+                clearTurn(); clearLimit();
             }
-            end = now() + LEASE;
+            if (channel === 'limit' && !leased('limit')) clearLimit();
+            ends[channel] = now() + LEASE;
         },
-        stop() { end = 0; generation++; last = null; candidate = null; code = 'idle'; clearTurn(); },
+        stop() {
+            ends.navigation = 0;
+            last = candidate = null;
+            clearTurn();
+            if (!active()) { generation++; code = 'idle'; clearLimit(); }
+        },
         setFront(value) {
             if (value === front) return;
             front = value; generation++; candidate = null; code = value ? 'waiting' : 'hidden';
-            clearTurn();
+            clearTurn(); clearLimit();
         },
         setGuidance(value) { guidance = value === true || value === 1; },
         captureToken() { return active() && canCapture() ? generation : null; },
-        result(token, value, reason, turn) {
+        wantsLimit: () => leased('limit'),
+        result(token, value, reason, turn, limit, capturedAt = now()) {
             if (!active() || !canCapture() || token !== generation) return;
+            if (!leased('limit') || !value || !limit) clearLimit();
+            else {
+                const previous = candidateLimit;
+                // A late or conflicting frame cannot refresh a previous road sign.
+                lastLimit = previous && previous.kmh === limit && capturedAt > previous.at && capturedAt - previous.at < LIMIT_KEEP ?
+                    { kmh: limit, at: capturedAt, since: previous.at } : null;
+                candidateLimit = { kmh: limit, at: capturedAt };
+            }
             if (!value || !turn) {
                 if (missedTurn) clearTurn();
-                else { missedTurn = true; candidateTurn = null; }
+                else {
+                    missedTurn = true; candidateTurn = null; candidateLanes = '';
+                    if (lastTurn && lastTurn.kind === 'lanes') lastTurn = null;
+                    else if (lastTurn) delete lastTurn.lanes;
+                }
             } else {
                 const key = turn.kind + ':' + (turn.exit || '');
                 const verified = lastTurn && lastTurn.kind === turn.kind && lastTurn.exit === turn.exit &&
                     now() - lastTurn.at < TURN_KEEP;
-                if (candidateTurn === key || verified) lastTurn = Object.assign({ at: now() }, turn);
-                else lastTurn = null;
+                const laneKey = turn.lanes ? JSON.stringify(turn.lanes) : '';
+                if (candidateTurn === key || verified) {
+                    lastTurn = Object.assign({ at: now() }, turn);
+                    if (candidateTurn !== key || candidateLanes !== laneKey) delete lastTurn.lanes;
+                    if (turn.kind === 'lanes' && !lastTurn.lanes) lastTurn = null;
+                } else lastTurn = null;
                 missedTurn = false;
                 candidateTurn = key;
+                candidateLanes = laneKey;
             }
             const wasLive = code === 'live';
             code = value ? 'confirming' : reason;
@@ -67,8 +97,10 @@ function state(now) {
         snapshot() {
             if (!active()) return { code: 'idle', active: false };
             const age = last ? now() - last.at : Infinity;
+            const limitAge = lastLimit ? now() - lastLimit.at : Infinity;
             return { code: canCapture() ? code : front === null ? 'no-screen-event' : 'hidden', active: true,
                 eta: age >= 0 && age < KEEP ? last : null,
+                limit: leased('limit') && canCapture() && limitAge >= 0 && limitAge < LIMIT_KEEP ? lastLimit : null,
                 turn: canCapture() && lastTurn && now() - lastTurn.at < TURN_KEEP ? lastTurn : null };
         },
     };
@@ -106,7 +138,7 @@ function run() {
     let captureDetail = '';
     function clearFrame() { try { fs.unlinkSync(FRAME); } catch (error) {} }
     function capture() {
-        const token = probe.captureToken();
+        const token = probe.captureToken(), capturedAt = Date.now();
         if (capturing || token === null) return;
         capturing = true;
         clearFrame();
@@ -126,7 +158,9 @@ function run() {
                 if (!dims) { probe.result(token, null, 'capture-format'); return; }
                 const frame = fs.readFileSync(FRAME);
                 const eta = readEta(frame, dims[0], dims[1], templates);
-                probe.result(token, eta, 'no-eta', eta && readTurn(frame, dims[0], dims[1], templates, eta.layout));
+                const metric = eta && / (m|km)$/.test(eta.distance) && hasWazeDock(frame, dims[0], dims[1]);
+                const limit = probe.wantsLimit() && metric ? readSpeedLimit(frame, dims[0], dims[1], templates, eta.layout) : null;
+                probe.result(token, eta, 'no-eta', eta && readTurn(frame, dims[0], dims[1], templates, eta.layout), limit, capturedAt);
             } catch (err) {
                 console.warn('ETA read: ' + err.message);
                 captureDetail = err.code === 'ENOENT' ? 'no-frame' : 'unreadable-frame';
@@ -135,7 +169,7 @@ function run() {
         });
     }
     setInterval(capture, INTERVAL);
-    // Only three fixed operations. No file paths or arbitrary commands from clients.
+    // Only fixed operations. No file paths or arbitrary commands from clients.
     const server = net.createServer((socket) => {
         let input = '';
         socket.setTimeout(1500, () => socket.destroy());
@@ -148,6 +182,7 @@ function run() {
             const command = input.slice(0, -1);
             if (command === 'start') { if (!probe.snapshot().active) captureDetail = ''; probe.start(); }
             else if (command === 'stop') probe.stop();
+            else if (command === 'limit') probe.start('limit');
             else if (command !== 'get') { socket.destroy(); return; }
             socket.end(JSON.stringify(Object.assign(probe.snapshot(), { gateStatus, captureDetail })) + '\n');
         });

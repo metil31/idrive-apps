@@ -1,68 +1,72 @@
-# Aplicații iDrive 7 România
+# Metil's iDrive 7 Apps
 
-O singură sursă MGU Store pentru **Metil's HUD Apps**, **Speed Limit Romania**, **Seat Comfort** și **Waze ETA iOS**. Adaugă `metil31/idrive-apps` și selectează ramura `mgu-romania`. Waze CarPlay Reader este dependența Waze ETA iOS. Aplicațiile cu suprapuneri folosesc [cluster-render](https://github.com/robertnisipeanu/idrive-apps).
+One MGU Store source for BMW head units running iDrive 7 (MGU/ID7).
 
-Interfața pornește în engleză. Schimbă **Language → Romana** din meniul fiecărei aplicații. Interfața română folosește text fără diacritice.
+## Install and update
 
-## Metil's HUD Apps
+1. Open **Sources** in MGU Store and add `metil31/idrive-apps`.
+2. Select the **mgu-romania** branch and refresh the source.
+3. Install or update only the apps you want. MGU Store resolves their declared tool dependencies. For HUD and cluster overlays, make [cluster-render](https://github.com/robertnisipeanu/idrive-apps) available in your sources. To show overlays on the cluster map, keep a compatible **Maps on cluster** map active in the instrument cluster.
 
-Din 0.2.1, meniul deschide pagini separate pentru Media, semnalizări și ETA CarPlay nativ. ETA nativ folosește estimările trimise direct către iDrive de o aplicație compatibilă. Pentru Waze, aplicația separată **Waze ETA iOS** citește informațiile de pe ecranul CarPlay.
+The menus default to English. Select **Language → Romana** for Romanian without diacritics. Position controls move overlays in 10-pixel steps where provided. Move and resize each screen independently. Demos are for a stationary vehicle and stop when you leave their settings page, start moving, or reach the 90-second limit. A cluster-map demo needs an active map.
 
-Semnalizările și avariile, ora sosirii dacă iDrive primește estimări CarPlay, plus titlul și artistul din CarPlay. Media apare pe HUD, pe harta activă din bord sau pe ambele, cu mărime și poziție separate. Coperta albumului este opțională și apare dacă sursa CarPlay furnizează imaginea pe unitate. Din 0.2.2, fundalul Media pe harta din bord are colțuri rotunjite și urmărește lățimea titlului, a artistului și a copertei.
-
-La actualizarea aplicației HUD, **Show song and artist** este oprit implicit. Dacă **Media HUD Romania** este deja instalată, dezactivează afișarea din aplicația veche înainte să activezi media în cea nouă. Reglajele media se fac în aplicația nouă. [Credite și licențe](projects/sound-drive/apps/hud_romania/NOTICE).
-
-Cu mașina staționată, folosește demo-urile pentru semnalizări, ETA și media. Demo-ul se oprește la ieșirea din meniu, când mașina se mișcă sau după cel mult 90 de secunde. Pentru mostrele din cluster este necesară o hartă activă în bord.
-
-## Speed Limit Romania
-
-În secțiunea HUD, dimensiunea semnului poate fi redusă până la 40 px. Pentru dimensiuni sub 64 px sunt disponibile treptele 40, 48 și 56 px.
-
-În secțiunea pentru bord, rândul „Bord” arată ce raportează `cluster-render` despre harta telefonului și un eventual panou de temă. Rândul este activ cu afișarea setată pe bord sau pe ambele ecrane.
-
-Din versiunea 1.1.5, semnul urmează harta Maps on cluster când o temă o găzduiește în panoul de bord. Dimensiunea și poziția configurate pentru bord se adaptează la dreptunghiul hărții, iar semnul dispare când fluxul hărții se oprește.
-
-Din 1.1.6, în secțiunea „Indicatoare de prioritate” poți activa avertizările offline pentru „Cedează trecerea” și „STOP”. Semnul de viteză se estompează, indicatorul de prioritate și distanța apar în același loc, apoi semnul de viteză revine. Demo-urile sunt disponibile cu mașina staționată și afișarea pe HUD activată. Poți regla poziția cu butoanele HUD existente, în pași de 10 px. Demo-ul durează cel mult 90 s și se oprește când ieși din meniu sau mașina începe să se miște.
-
-Pentru proveniența datelor, sursele independente și metoda de verificare, vezi [verificarea limitelor și indicatoarelor](projects/speed-limit/VERIFICARE.md).
-
-Versiunea 1.1.7 aplică limita documentată de 30 km/h pe două segmente din Strada Rondă, Sectorul 2. [Informarea ADP Sector 2](https://adp2.ro/wp-content/uploads/Informare-sensuri-unice-cvartal-4.pdf)
-
-În 1.1.8, importul național acceptă și indicatoare STOP și Cedează marcate separat, cu sens explicit, precum și puncte fix la despărțirea unui drum cu sens unic în două segmente, când intrarea este unică și numele drumului se potrivește. Pachetul conține 19.739 de înregistrări de prioritate.
-
-În 1.1.9, „Cedează trecerea” și „STOP” apar și pe harta activă din bord, inclusiv în temele care găzduiesc harta. Avertizările din bord au un comutator propriu, pornit implicit, și folosesc poziția și mărimea semnului de viteză configurate pentru bord. Demo-urile urmează afișajele selectate în aplicație.
-
-În 1.2.0 sunt disponibile și demo-uri pentru semnul de limită și avertizarea de radar, pe afișajele selectate. Butoanele de poziție folosesc pași de 10 px și în bord.
-
-## Seat Comfort
-
-Aplicație separată pentru iDrive 7, cu setările direct pe prima pagină. Selectează scaunele din față, treapta și pragul exterior. Valori inițiale: 8 °C, treapta 2 și ambele scaune. Pornirea automată se activează din meniu.
-
-Aplicația încearcă o singură activare per scaun după trecerea mașinii din starea oprită în READY, cât timp staționezi și temperatura este strict sub prag. Comanda are o durată de trei minute. Dacă oprești încălzirea manual, aplicația nu o pornește din nou în același ciclu.
-
-Versiune experimentală pentru mașini cu traseu de încălzire frontală prin BDC_G05. Pentru fiecare scaun, aplicația verifică starea și repetă verificarea modulului separat la cel puțin 20 de secunde distanță înainte să trimită comanda. Dacă mașina nu confirmă un traseu compatibil, aplicația afișează rezultatul în meniu și lasă scaunul așa cum este. Încălzirea banchetei și ventilația apar ca indisponibile în această versiune. Traseul confirmat în simulare deservește scaunele din față. [Referință Heating Comfort](https://github.com/NamelsMissing/mgu-apps/tree/main/apps/g21_wheelheat).
+| App | Current version | Function |
+| --- | --- | --- |
+| **Metil's HUD Apps** | 0.2.2 | Turn signals, native CarPlay ETA, and now-playing information |
+| **Waze ETA iOS** | 0.3.0 | Waze ETA, turns, roundabout exit number, lane guidance and forks |
+| **Speed Limit Romania** | 1.3.0 | Offline speed limits, cameras and priority signs, with an optional Waze limit |
+| **Seat Comfort** | 0.1.1 | Automatic front-seat heating at a cold start |
+| **Waze CarPlay Reader** | 0.3.0 | Shared capture tool for Waze ETA iOS and the optional Speed Limit Romania source |
 
 ## Waze ETA iOS
 
-În 0.2.0, citirea pornește automat în starea READY când este activă cel puțin o opțiune de afișare. Lasă Waze în prim-plan pe ecranul central, cu un traseu activ. Ora sosirii, durata și distanța apar pe HUD sau pe harta activă din bord, cu reglaje independente. După schimbarea ecranului, ultima estimare poate rămâne vizibilă până la două minute de la ultima captură validă.
+Enable arrival and maneuvers independently for the windshield HUD and the cluster map. Keep an active Waze route visible on the centre CarPlay screen. The reader samples approximately every four seconds and supports the tested 8:3 CarPlay layout. Its navigation overlays use compact, content-width backgrounds with rounded corners and 3× textures. Use the built-in demos to position ETA, left and right turns, roundabouts, lanes and forks independently of Waze.
 
-Manevrele se activează separat pe HUD și pe hartă, cu propriile reglaje de poziție și mărime. În 0.2.1, pe lângă săgețile de stânga și dreapta, un sens giratoriu poate afișa numărul ieșirii într-un cerc, alături de distanță. Citirea este experimentală și confirmă o manevră nouă în două cadre. În 0.2.2, o captură ratată nu ascunde imediat o manevră recent confirmată. Manevra este retrasă la a doua citire ratată, la expirare, la ieșirea din CarPlay sau când se detectează o manevră diferită.
+- For a fork, the recommended branch is white and the other branch is muted. A roundabout shows the exit number inside a small circle next to the distance.
+- Experimental lane recognition looks for the lane row inside the full-screen Waze maneuver card. It can distinguish a recommended turn within a lane that also allows going straight. Unrecognized rows and rows without a distinguishable recommendation are omitted.
+- New maneuvers and lane rows require two matching readings. An isolated missed frame can briefly retain a confirmed turn, without retaining the missing lane row. Changing away from the centre CarPlay screen stops live readings. The last verified ETA can remain visible for up to two minutes from its last valid capture.
 
-Fiecare afișaj are un demo propriu în meniu. Poți regla poziția și mărimea pentru ETA, stânga, dreapta și giratoriu cu Waze închis pe ecranul central. Demo-ul cere starea READY și viteză zero, iar pe cluster necesită harta activă în bord. Preselectarea benzilor este disponibilă ca mostră. Citirea ei din Waze necesită validarea pe cadre CarPlay care conțin ghidajul de benzi.
+The capture reads the **centre display**. The separate cluster video can remain visible while iDrive shows an unrelated app, but on the tested configuration it contains the map and route only. Continuous off-screen access to the centre CarPlay guidance is still unverified on the vehicle. [Apple's instrument-cluster scene documentation](https://developer.apple.com/documentation/carplay/cptemplateapplicationinstrumentclusterscene) · [Maps on cluster's separate video pipeline](https://github.com/robertnisipeanu/idrive-apps/blob/main/native/waze-on-cluster/README.md)
 
-În 0.2.3, fundalul pentru ETA și manevre are colțuri rotunjite și se lărgește după conținut.
+## Speed Limit Romania
 
-Texturile Waze se randează la 3×, iar cele pentru semnalizări, CarPlay ETA din Metil’s HUD Apps și semnele din Speed Limit Romania la 2×. Dimensiunile afișate și reglajele salvate sunt aceleași.
+The offline map provides speed limits and advance alerts for cameras, STOP and Give way. You can correct a particular road manually from the menu. The HUD speed sign can be as small as 40 px. The cluster overlay follows a compatible map into a hosted theme panel and leaves when that map stops. Priority signs briefly replace the speed sign in the same position. Their HUD and cluster switches are independent. Demos cover the speed sign, camera, STOP and Give way.
 
-## Surse și licențe
+To try the experimental supplement, set Waze on the iPhone to always show the speed limit next to its speedometer. Start a route, then select one of the following options in **Speed Limit Romania → Waze speed limit**. [Waze speedometer settings](https://support.google.com/waze/answer/6386895/get-speed-limit-alerts?hl=en-GB)
 
-Fiecare aplicație folosește propriul kit de construire. Versiunile sunt actualizate aici prin importarea și verificarea surselor originale.
+- **Off** is the default. Use the offline map and local corrections.
+- **When the offline limit is uncertain** accepts a confirmed Waze reading when the offline value is missing, inferred, conditional, variable or directionally uncertain.
+- **Prefer Waze** can temporarily show a different confirmed Waze limit, even when the offline map has an explicit value.
 
-- Codul arhivat pentru **Sound Drive** și **Sound Drive Audio**, MIT. [Upstream Nico1003/sound-drive](https://github.com/Nico1003/sound-drive/tree/b7901d9abc2f69464def12278c81bb8023379224) · [Versiunea română la b42cd42](https://github.com/metil31/sound-drive-ro/tree/b42cd42e7407222bb2c723b74c0e4df31a24f87f) · [Licență](projects/sound-drive/LICENSE).
-- **Speed Limit Romania 1.2.0**, cod GPL-3.0-or-later, cu notificările MIT ale componentelor preluate. [Upstream hexlay/idrive7-custom-apps](https://github.com/hexlay/idrive7-custom-apps) · [Baza versiunii române la 77b05b0](https://github.com/metil31/idrive7-speed-limit-romania/tree/77b05b0d6bf6aebda431770fd37e3dd2b7ecca1d) · [GPL](projects/speed-limit/LICENSE) · [MIT](projects/speed-limit/LICENSE.MIT) · [Licența graficii indicatoarelor](projects/speed-limit/apps/speed_limit/NOTICE).
+Both options need Waze in the foreground with a readable active metric route and a clearly recognized speed-limit sign. The figure in Waze's adjacent speedometer is excluded. Two consecutive readings must agree and fall within the same locally matched road and direction. Manual corrections take precedence, and the app falls back to the offline result when the reading expires, disagrees, or the road or direction changes. The comparison is local and temporary. It updates the display only and does not edit the offline map, cruise control or the vehicle's speed-limit assistance. The menu shows the available Waze reading and the offline value when a Waze reading takes over.
 
-Datele din harta offline sunt © [contributorii OpenStreetMap](https://www.openstreetmap.org/copyright), licența [ODbL](https://opendatacommons.org/licenses/odbl/1-0/). Baza de date completă este disponibilă ca [romania.pack](projects/speed-limit/apps/speed_limit/romania.pack), cu o [notificare inclusă în pachet](projects/speed-limit/apps/speed_limit/NOTICE). Pachetul folosește [extrasul România de la Geofabrik](https://download.geofabrik.de/europe/romania.html). Codul de generare a hărții este în [pack_sli.py](projects/speed-limit/kit/tools/pack_sli.py).
+See [data provenance and verification](projects/speed-limit/VERIFICARE.md) for the offline pack and the difference between source disagreement and a verified permanent correction. Follow the actual road signs.
 
-Harta 1.1.2 folosește datele din 24 noiembrie 2026 și corectează 13 segmente de pe Calea Victoriei la 30 km/h. [Lista segmentelor și sursa oficială](projects/speed-limit/kit/tools/romania-local-limits.json).
+## Metil's HUD Apps
 
-Atlasele de fonturi sunt distribuite cu licențele lor în directoarele `kit/runtime/fonts` și `kit/localization/fonts` din fiecare proiect.
+The native iDrive menu has separate pages for **Media**, **Turn signals**, and **Native CarPlay ETA**. The native ETA uses route estimates sent directly to iDrive by compatible navigation apps. Waze ETA iOS reads the visible Waze interface separately.
+
+Media shows the current song and artist on the HUD, the active cluster map, or both, with independent position and size. Album art is optional and depends on the source. On the cluster map, the rounded background fits the title, artist and cover. On the HUD, Media remains transparent behind its text. Enable **Show song and artist** in the Media page. If the old standalone Media HUD app is still installed, turn off its display before enabling the merged one. [Credits and licenses](projects/sound-drive/apps/hud_romania/NOTICE)
+
+## Seat Comfort
+
+Select the front seats, heat level and outside-temperature threshold. The defaults are both front seats, level 2 and 8 °C. Enable automatic startup in the menu. The app tries once per selected seat, after the vehicle goes from off to READY while stationary and strictly below the threshold. The command has a three-minute duration. Turning the heating off manually will not trigger another start in the same cycle.
+
+Experimental and specific to compatible BDC_G05 front heating. Seat-module checks are repeated at least 20 seconds apart before activation. The app reports the result in its menu. Rear heating and ventilation are unavailable in this version. [Heating Comfort reference](https://github.com/NamelsMissing/mgu-apps/tree/main/apps/g21_wheelheat)
+
+## Build and verify
+
+Use the corresponding iDrive app kit in `projects/sound-drive` or `projects/speed-limit` and the OAP SDK expected by that kit. From the project directory, build with `python kit/tools/build.py <app-id>`. The app IDs are `hud_romania`, `waze_eta_ro`, `speed_limit` and `scaune_calde_ro`. MGU Store uses [mgu-repo.json](mgu-repo.json) to locate the build and its dependencies.
+
+Run `node projects/sound-drive/kit/tools/test_waze_eta_ro.js`, `node projects/speed-limit/kit/tools/test_speed_limit_ro.js` and `node projects/speed-limit/kit/tools/test_speed_limit_outputs.js` from the repository root for the primary regressions. The 0.3.0 reader was also replayed locally with 30, 80 and 130 km/h references, both fork directions (one mirrored), a full lane row and a partial lane row. Some public references use different screen dimensions. Their relevant crops were replayed within the known test layout, so this validates the glyphs rather than full-layout compatibility on the vehicle. [80 km/h](https://s1.cdn.autoevolution.com/images/news-gallery-860x/my-5-waze-settings-for-perfect-navigation-on-the-daily-commute-thumbnail_3.jpg) · [130 km/h and a fork, figure 6](https://rosap.ntl.bts.gov/view/dot/94253/dot_94253_DS1.pdf) · [Complete lane row](https://s1.cdn.autoevolution.com/images/news/google-brings-key-google-maps-feature-to-waze-on-android-auto-and-carplay-143166_1.jpg) · [Partial lane row](https://www.waze.com/discuss/t/lane-guidance-partially-displayed/281868)
+
+New capture features have been tested locally and still need confirmation on the vehicle.
+
+## Sources and licenses
+
+- **Speed Limit Romania** is GPL-3.0-or-later, with preserved MIT notices. [Upstream](https://github.com/hexlay/idrive7-custom-apps) · [Romanian base](https://github.com/metil31/idrive7-speed-limit-romania/tree/77b05b0d6bf6aebda431770fd37e3dd2b7ecca1d) · [GPL](projects/speed-limit/LICENSE) · [MIT](projects/speed-limit/LICENSE.MIT) · [Sign artwork notice](projects/speed-limit/apps/speed_limit/NOTICE)
+- The offline pack uses [OpenStreetMap data](https://www.openstreetmap.org/copyright), licensed under the [ODbL](https://opendatacommons.org/licenses/odbl/1-0/), from [Geofabrik's Romania extract](https://download.geofabrik.de/europe/romania.html). See [the compiled pack](projects/speed-limit/apps/speed_limit/romania.pack), [generator](projects/speed-limit/kit/tools/pack_sli.py), and [documented local limits](projects/speed-limit/kit/tools/romania-local-limits.json).
+- **Sound Drive** and **Sound Drive Audio** remain archived in source. [Upstream](https://github.com/Nico1003/sound-drive/tree/b7901d9abc2f69464def12278c81bb8023379224) · [Romanian version](https://github.com/metil31/sound-drive-ro/tree/b42cd42e7407222bb2c723b74c0e4df31a24f87f) · [MIT license](projects/sound-drive/LICENSE)
+- Font licenses ship with their atlases under each project's `kit/runtime/fonts` and `kit/localization/fonts`. Individual app notices are included in the corresponding app directories.
+
+Independent community project for compatible BMW vehicles.

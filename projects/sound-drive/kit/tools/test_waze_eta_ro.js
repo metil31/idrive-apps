@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const zlib = require('zlib');
-const { model, readEta, readTurn } = require('../../tools/waze-eta-reader/ocr');
+const { model, readEta, readTurn, readSpeedLimit, hasWazeDock } = require('../../tools/waze-eta-reader/ocr');
 const { state, KEEP, LEASE } = require('../../tools/waze-eta-reader/reader');
 const { ScaledCanvas } = require('../runtime/canvas');
 const atlas = require('../../tools/waze-eta-reader/eta-atlas.json');
@@ -117,9 +117,44 @@ assert.notStrictEqual(missingGate.captureToken(), null);
 missingGate.setFront(true);
 assert.notStrictEqual(missingGate.captureToken(), initial);
 
+const dual = state(() => time);
+dual.start();
+dual.start('limit');
+dual.setFront(true);
+let dualToken = dual.captureToken();
+dual.result(dualToken, synthetic, null, left, 80);
+assert.strictEqual(dual.snapshot().limit, null);
+time += 4000;
+dual.result(dualToken, synthetic, null, left, 80);
+assert.strictEqual(dual.snapshot().limit.kmh, 80);
+assert.strictEqual(dual.snapshot().limit.since, time - 4000);
+dual.stop();
+assert.strictEqual(dual.snapshot().limit.kmh, 80, 'navigation stop does not revoke the limit lease');
+time += 4000;
+dual.result(dualToken, synthetic, null, left, 130);
+assert.strictEqual(dual.snapshot().limit, null, 'discard the old limit immediately on disagreement');
+dual.start('limit');
+time += 4000;
+dual.result(dualToken, synthetic, null, left, 130);
+assert.strictEqual(dual.snapshot().limit.kmh, 130);
+dual.setFront(false);
+assert.strictEqual(dual.snapshot().limit, null, 'a hidden centre screen cannot supply a live limit');
+
+dual.setFront(true);
+dualToken = dual.captureToken();
+const laneTest = { ...left, lanes: [{ kind: 'left', active: true }, { kind: 'straight', active: false }] };
+dual.result(dualToken, synthetic, null, left);
+dual.result(dualToken, synthetic, null, laneTest);
+assert.ok(!dual.snapshot().turn.lanes, 'a lane indication needs two matching reads');
+dual.result(dualToken, synthetic, null, laneTest);
+assert.deepStrictEqual(dual.snapshot().turn.lanes, laneTest.lanes);
+dual.result(dualToken, synthetic, null, left);
+assert.ok(!dual.snapshot().turn.lanes && dual.snapshot().turn.kind === 'left',
+    'loss of lane certainty leaves the valid primary turn in place');
+
 const external = process.argv.slice(2);
 if (external.length) {
-    assert.ok(external.length === 3 || external.length === 4);
+    assert.ok([3, 4, 9].includes(external.length));
     if (external[3]) assert.deepStrictEqual(readTurn(fs.readFileSync(external[3]), 1280, 480, templates, 'fullscreen'), roundabout);
     const read = (file) => readEta(fs.readFileSync(file), 1280, 480, templates);
     assert.deepStrictEqual(values(read(external[0])), ['17:15', '36 min', '12 km', 'dashboard']);
@@ -127,6 +162,11 @@ if (external.length) {
     assert.strictEqual(read(external[2]), null);
     for (const [index, mode] of [[0, 'dashboard'], [1, 'fullscreen']]) {
         assert.deepStrictEqual(readTurn(fs.readFileSync(external[index]), 1280, 480, templates, mode), left);
+        assert.strictEqual(readSpeedLimit(fs.readFileSync(external[index]), 1280, 480, templates, mode), 30);
+        assert.ok(hasWazeDock(fs.readFileSync(external[index]), 1280, 480));
+        const withoutWaze = fs.readFileSync(external[index]);
+        for (let y = 140; y < 335; y++) withoutWaze.fill(0, y * 1280 * 4, (y * 1280 + 75) * 4);
+        assert.strictEqual(hasWazeDock(withoutWaze, 1280, 480), false);
         assert.strictEqual(readTurn(fs.readFileSync(external[2]), 1280, 480, templates, mode), null);
     }
     const rightFixture = fs.readFileSync(external[1]);
@@ -136,6 +176,28 @@ if (external.length) {
         original.copy(rightFixture, (y * 1280 + x) * 4, from, from + 4);
     }
     assert.deepStrictEqual(readTurn(rightFixture, 1280, 480, templates, 'fullscreen'), { kind: 'right', distance: '70 m' });
+    if (external.length === 9) {
+        const [fork, lanes, partial, eighty, oneThirty] = external.slice(4).map(file => fs.readFileSync(file));
+        assert.deepStrictEqual(readTurn(fork, 1280, 480, templates, 'fullscreen'),
+            { kind: 'fork-right', distance: '70 m' });
+        const opposite = Buffer.from(fork);
+        for (let y = 24; y < 79; y++) for (let x = 108; x < 164; x++) {
+            const at = (y * 1280 + 108 + 163 - x) * 4;
+            fork.copy(opposite, (y * 1280 + x) * 4, at, at + 4);
+        }
+        assert.deepStrictEqual(readTurn(opposite, 1280, 480, templates, 'fullscreen'),
+            { kind: 'fork-left', distance: '70 m' });
+        const guidance = readTurn(lanes, 1280, 480, templates, 'fullscreen');
+        assert.deepStrictEqual(guidance.lanes, [
+            { kind: 'left', active: false, branch: false },
+            { kind: 'straight', active: false, branch: false },
+            { kind: 'straight-right', active: false, branch: true },
+        ]);
+        assert.ok(!readTurn(partial, 1280, 480, templates, 'fullscreen').lanes);
+        assert.strictEqual(readSpeedLimit(eighty, 1280, 480, templates, 'dashboard'), 80);
+        assert.strictEqual(readSpeedLimit(oneThirty, 1280, 480, templates, 'fullscreen'), 130);
+        assert.strictEqual(readSpeedLimit(eighty, 1280, 480, templates, 'fullscreen'), null);
+    }
 }
 
 async function testHud() {

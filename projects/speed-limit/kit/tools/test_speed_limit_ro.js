@@ -1,4 +1,31 @@
 'use strict';
+const assert = require('assert');
+const { WazeLimit, chooseWazeLimit } = require('../../apps/speed_limit/waze-limit');
+const pendingLimits = [];
+const reader = new WazeLimit(callback => pendingLimits.push(callback));
+reader.tick(1000, '100:1');
+pendingLimits.shift()({ kmh: 80, since: 999, at: 4000 });
+assert.strictEqual(reader.value(4000), null);
+reader.tick(5000, '100:1');
+pendingLimits.shift()({ kmh: 80, since: 2000, at: 4990 });
+assert.strictEqual(reader.value(5000), 80);
+assert.strictEqual(reader.value(11490), null);
+reader.tick(8000, '100:-1');
+assert.strictEqual(reader.value(8000), null);
+pendingLimits.shift()({ kmh: 80, since: 6000, at: 8000 });
+assert.strictEqual(reader.value(8100), null);
+reader.tick(9600, '100:-1');
+const resetResponse = pendingLimits.shift();
+reader.reset();
+resetResponse({ kmh: 80, since: 8200, at: 9600 });
+assert.strictEqual(reader.value(9600), null);
+assert.strictEqual(chooseWazeLimit(80, 'prefer', { limit: 70 }), 80);
+assert.strictEqual(chooseWazeLimit(80, 'uncertain', { limit: 70 }), null);
+assert.strictEqual(chooseWazeLimit(80, 'uncertain', { limit: 70, inferred: true }), 80);
+assert.strictEqual(chooseWazeLimit(80, 'uncertain', { limit: null, variable: true }), 80);
+assert.strictEqual(chooseWazeLimit(80, 'prefer', { limit: 70, corrected: true }), null);
+assert.strictEqual(chooseWazeLimit(80, 'offline', { limit: 70, inferred: true }), null);
+
 /* Romania-specific rules plus sanity checks against the generated Geofabrik pack. Node 8 compatible. */
 const path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
