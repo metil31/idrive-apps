@@ -40,13 +40,22 @@ mgu.run({
         const { background, ui } = ctx;
         const language = menuLanguage(ctx);
         const preview = background && background.preview;
-        if (preview) {
-            ui.onVisible((name, open) => { if (name === 'MAIN' && !open) preview.stop(); });
-            ui.onClick('HR_DEMO_STOP', preview.stop);
+        const pages = { HUD_MEDIA: ['HR_OPEN_MEDIA', 'MR'], HUD_IND: ['HR_OPEN_IND', 'HR_IND'],
+            HUD_ETA: ['HR_OPEN_ETA', 'HR_ETA'] };
+        for (const [page, [button, prefix]] of Object.entries(pages)) {
+            ui.onClick(button, () => ui.open(page));
+            if (preview) ui.onClick(prefix + '_DEMO_STOP', preview.stop);
         }
-        wireMenu(Object.assign({}, ctx, { background: background && background.hud, language, preview }));
+        ui.onVisible((name, open) => { if (!open && pages[name] && preview) preview.stop(); });
+        const renderDemo = (page, write) => {
+            const prefix = pages[page][1], { t } = language;
+            write('enabled', prefix + '_DEMO_STOP', !!(preview && preview.selected()));
+            write('text', prefix + '_DEMO_STATUS', preview && preview.current() ? t('Demo active', 'Demo activ') :
+                t('Demo requires READY and standstill', 'Demo disponibil in READY cu masina oprita'));
+        };
+        wireMenu(Object.assign({}, ctx, { background: background && background.hud, language, preview, renderDemo }));
         wireMedia(Object.assign({}, ctx, {
-            background: background && background.media, settings: mediaSettings(ctx.settings), language, preview,
+            background: background && background.media, settings: mediaSettings(ctx.settings), language, preview, renderDemo,
         }));
     },
 });

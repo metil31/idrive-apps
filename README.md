@@ -6,6 +6,8 @@ Interfața pornește în engleză. Schimbă **Language → Romana** din meniul f
 
 ## Metil's HUD Apps
 
+Din 0.2.1, meniul deschide pagini separate pentru Media, semnalizări și ETA CarPlay nativ. ETA nativ folosește estimările trimise direct către iDrive de o aplicație compatibilă. Pentru Waze, aplicația separată **Waze ETA iOS** citește informațiile de pe ecranul CarPlay.
+
 Semnalizările și avariile, ora sosirii dacă iDrive primește estimări CarPlay, plus titlul și artistul din CarPlay. Media apare pe HUD, pe harta activă din bord sau pe ambele, cu mărime și poziție separate. Coperta albumului este opțională și apare dacă sursa CarPlay furnizează imaginea pe unitate.
 
 La actualizarea aplicației HUD, **Show song and artist** este oprit implicit. Dacă **Media HUD Romania** este deja instalată, dezactivează afișarea din aplicația veche înainte să activezi media în cea nouă. Reglajele media se fac în aplicația nouă. [Credite și licențe](projects/sound-drive/apps/hud_romania/NOTICE).

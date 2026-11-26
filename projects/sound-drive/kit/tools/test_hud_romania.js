@@ -137,12 +137,24 @@ const actions = {}, shown = {};
 const config = { indicators: true, eta: true, indicatorX: 20, indicatorY: 286, indicatorGap: 362, position: 'low', brightness: 'normal' };
 const options = { get: key => config[key], set(key, value) { config[key] = value; this.render(); }, onChange(fn) { this.render = fn; } };
 const menuApp = new EventEmitter();
-const ui = { comp() { return null; }, cells() {}, isVisible: () => true, onVisible() {}, onClick(id, fn) { actions[id] = fn; } };
+let page = 'MAIN', onVisible;
+const ui = { comp() { return null; }, cells() {}, isVisible: name => page === name,
+    onVisible(fn) { onVisible = fn; }, onClick(id, fn) { actions[id] = fn; } };
+function open(name) {
+    const previous = page;
+    page = name;
+    onVisible(previous, false);
+    onVisible(name, true);
+}
 for (const method of ['checked', 'text', 'enabled', 'selected']) ui[method] = (id, value) => { shown[id] = value; };
 try {
     const language = menuLanguage({ ui, settings: options, spec: appSpec });
     wireMenu({ app: menuApp, ui, settings: options, language });
+    assert.strictEqual(shown.HR_POSITION, undefined);
+    assert.strictEqual(shown.HR_ETA_STATUS, undefined);
+    open('HUD_IND');
     assert.ok(shown.HR_POSITION.includes('X 20'));
+    assert.strictEqual(shown.HR_ETA_STATUS, undefined);
     actions.HR_RIGHT(); actions.HR_RIGHT(); actions.HR_UP(); actions.HR_NARROW();
     assert.deepStrictEqual([config.indicatorX, config.indicatorY, config.indicatorGap], [40, 276, 352]);
     actions.HR_RESET();
@@ -150,9 +162,18 @@ try {
     actions.HR_IND(); actions.HR_RIGHT();
     assert.strictEqual(config.indicatorX, 0);
     assert.strictEqual(shown.HR_RIGHT, false);
+    open('MAIN');
     actions.APP_LANGUAGE({ row: 1 });
+    assert.strictEqual(shown.HR_OPEN_ETA, 'ETA CarPlay nativ');
+    open('HUD_IND');
     assert.match(shown.HR_POSITION, /^Pozitie/);
-    assert.strictEqual(shown.HR_IND_HEAD, 'Semnalizari pe HUD');
+    assert.strictEqual(shown.HUD_IND_TITLE, 'Semnalizari');
+    open('HUD_ETA');
+    assert.match(shown.HR_ETA_SOURCE, /Waze ETA iOS/);
+    actions.HR_ETA();
+    assert.strictEqual(shown.HR_ETA_STATUS, 'Estimare dezactivata');
+    open('MAIN');
     actions.APP_LANGUAGE({ row: 0 });
+    open('HUD_IND');
     assert.match(shown.HR_POSITION, /^Position/);
 } finally { menuApp.emit('shutdown'); }

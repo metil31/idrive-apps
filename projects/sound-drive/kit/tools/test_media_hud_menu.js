@@ -6,11 +6,13 @@ const spec = require('../../apps/hud_romania/app.json');
 const { wireMenu } = require('../../apps/hud_romania/media-menu');
 
 const { menuLanguage } = require('../runtime/menu-language');
-const screen = spec.screens[0];
-assert.strictEqual(screen.name, 'MAIN');
-assert.strictEqual(screen.kind, 'menu');
-assert.strictEqual(screen.settings, true);
-const controls = new Map(screen.items.map((item) => [item[1], item[0]]));
+const [home, mediaPage, indicators, eta] = spec.screens;
+assert.deepStrictEqual(spec.screens.map(page => page.name), ['MAIN', 'HUD_MEDIA', 'HUD_IND', 'HUD_ETA']);
+assert.strictEqual(home.settings, true);
+assert.ok(mediaPage.items.every(row => row[1].startsWith('MR_')));
+assert.ok(!indicators.items.some(row => row[1].startsWith('HR_ETA')));
+assert.ok(eta.items.some(row => row[1] === 'HR_ETA_SOURCE'));
+const controls = new Map(home.items.concat(mediaPage.items).map(item => [item[1], item[0]]));
 const click = new Map(), current = new Map(), components = new Map();
 for (const id of ['MR_HUD_SIZE', 'MR_CL_SIZE']) {
     const slider = new EventEmitter();
@@ -33,7 +35,7 @@ const settings = {
 };
 const app = new EventEmitter(), tab = new EventEmitter();
 const ui = {
-    isVisible: () => true,
+    isVisible: name => name === 'HUD_MEDIA',
     comp: (id) => components.get(id),
     checked: (id, value) => current.set(id, value),
     selected: (id, value) => current.set(id, value),
@@ -79,7 +81,7 @@ try {
     press('MR_ART');
     assert.strictEqual(settings.get('albumArt'), true);
 } finally {
-    tab.emit('visible', 'MAIN', false);
+    tab.emit('visible', 'HUD_MEDIA', false);
     app.emit('shutdown');
 }
 console.log('Media native menu: 10 px movement, independent sliders and same-page controls verified');

@@ -6,7 +6,7 @@ const SECTIONS = { hud: 'MR_HUD', cluster: 'MR_CL' };
 const MOVE = { LEFT: ['x', -10], RIGHT: ['x', 10], UP: ['y', -10], DOWN: ['y', 10] };
 
 function wireMenu(ctx) {
-    const { ui, settings, background, app, language, preview } = ctx;
+    const { ui, settings, background, app, language, preview, renderDemo = () => {} } = ctx;
     const { t } = language;
     const shown = new Map();
     for (const [id, sample] of [['MR_HUD_DEMO', 'mediaHud'], ['MR_CL_DEMO', 'mediaCluster']]) {
@@ -28,7 +28,9 @@ function wireMenu(ctx) {
     const clear = () => { shown.clear(); };
 
     function render() {
-        if (!ui.isVisible('MAIN')) return;
+        if (!ui.isVisible('HUD_MEDIA')) return;
+        if (language.render('HUD_MEDIA')) clear();
+        renderDemo('HUD_MEDIA', (method, id, value) => write(method + id, value, v => ui[method](id, v)));
         for (const [id, key] of [['MR_ENABLED', 'enabled'], ['MR_ART', 'albumArt']]) {
             write(id, !!settings.get(key), (value) => ui.checked(id, value));
         }
@@ -97,9 +99,9 @@ function wireMenu(ctx) {
         }
     }
     settings.onChange(render);
-    ui.onVisible((name, visible) => { if (name === 'MAIN') setVisible(visible); });
+    ui.onVisible((name, visible) => { if (name === 'HUD_MEDIA') setVisible(visible); });
     if (app && app.on) app.on('shutdown', () => setVisible(false));
-    setVisible(ui.isVisible('MAIN'));
+    setVisible(ui.isVisible('HUD_MEDIA'));
 }
 
 module.exports = { wireMenu };
