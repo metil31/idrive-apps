@@ -2,7 +2,7 @@
   "id": "hud_romania",
   "title": "Metil's HUD Apps",
   "description": "Turn signals and CarPlay arrival on HUD, plus media on HUD and the cluster map.",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "language": "en",
   "license": "MIT",
   "vendor": "custom",

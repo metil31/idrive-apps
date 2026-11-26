@@ -17,19 +17,18 @@ const ARTIST = { align: 'center', font: 'label', literal: true };
 const TITLE_LEFT = { font: 'bold', literal: true };
 const ARTIST_LEFT = { font: 'label', literal: true };
 
-function drawTrack(cv, track, cover, pill = false) {
+function drawTrack(cv, track, cover, cluster = false) {
     const titleStyle = cover ? TITLE_LEFT : TITLE, artistStyle = cover ? ARTIST_LEFT : ARTIST;
-    const side = pill ? 48 : 44, gap = pill ? 12 : 10;
+    const side = cluster ? 48 : 44, gap = cluster ? 12 : 10;
     const coverWidth = cover ? side + gap : 0;
-    const padding = pill ? 56 : 16;
-    const width = cv.w - padding - coverWidth;
-    const titleSize = pill ? 19 : 18, artistSize = pill ? 16 : 15;
+    const width = cv.w - (cluster ? 56 : 16) - coverWidth;
+    const titleSize = cluster ? 19 : 18, artistSize = cluster ? 16 : 15;
     const title = fitText(cv, track.title, titleSize, width, titleStyle);
     const artist = track.artist ? fitText(cv, track.artist, artistSize, width, artistStyle) : '';
     const textWidth = Math.max(cv.textWidth(title, titleSize, titleStyle), cv.textWidth(artist, artistSize, artistStyle));
-    if (pill) {
-        const pillWidth = Math.ceil(textWidth + coverWidth + padding);
-        cv.roundRect((cv.w - pillWidth) / 2, 3, pillWidth, cv.h - 6, (cv.h - 6) / 2, [23, 25, 29, 208]);
+    if (cluster) {
+        const cardWidth = Math.ceil(textWidth + coverWidth) + 18;
+        cv.roundRect((cv.w - cardWidth) / 2, 3, cardWidth, cv.h - 6, 7, [23, 25, 29, 208]);
     }
     let x = cv.w / 2;
     if (cover) {

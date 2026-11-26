@@ -8,7 +8,7 @@ Interfața pornește în engleză. Schimbă **Language → Romana** din meniul f
 
 Din 0.2.1, meniul deschide pagini separate pentru Media, semnalizări și ETA CarPlay nativ. ETA nativ folosește estimările trimise direct către iDrive de o aplicație compatibilă. Pentru Waze, aplicația separată **Waze ETA iOS** citește informațiile de pe ecranul CarPlay.
 
-Semnalizările și avariile, ora sosirii dacă iDrive primește estimări CarPlay, plus titlul și artistul din CarPlay. Media apare pe HUD, pe harta activă din bord sau pe ambele, cu mărime și poziție separate. Coperta albumului este opțională și apare dacă sursa CarPlay furnizează imaginea pe unitate.
+Semnalizările și avariile, ora sosirii dacă iDrive primește estimări CarPlay, plus titlul și artistul din CarPlay. Media apare pe HUD, pe harta activă din bord sau pe ambele, cu mărime și poziție separate. Coperta albumului este opțională și apare dacă sursa CarPlay furnizează imaginea pe unitate. Din 0.2.2, fundalul Media pe harta din bord are colțuri rotunjite și urmărește lățimea titlului, a artistului și a copertei.
 
 La actualizarea aplicației HUD, **Show song and artist** este oprit implicit. Dacă **Media HUD Romania** este deja instalată, dezactivează afișarea din aplicația veche înainte să activezi media în cea nouă. Reglajele media se fac în aplicația nouă. [Credite și licențe](projects/sound-drive/apps/hud_romania/NOTICE).
 
@@ -44,11 +44,13 @@ Versiune experimentală pentru mașini cu traseu de încălzire frontală prin B
 
 ## Waze ETA iOS
 
-În 0.2.0, citirea pornește automat în starea READY când este activă cel puțin o opțiune de afișare. Lasă Waze în prim-plan pe ecranul central, cu un traseu activ. Ora sosirii, durata și distanța apar într-o pastilă pe HUD sau pe harta activă din bord, cu reglaje independente. După schimbarea ecranului, ultima estimare poate rămâne vizibilă până la două minute de la ultima captură validă.
+În 0.2.0, citirea pornește automat în starea READY când este activă cel puțin o opțiune de afișare. Lasă Waze în prim-plan pe ecranul central, cu un traseu activ. Ora sosirii, durata și distanța apar pe HUD sau pe harta activă din bord, cu reglaje independente. După schimbarea ecranului, ultima estimare poate rămâne vizibilă până la două minute de la ultima captură validă.
 
 Manevrele se activează separat pe HUD și pe hartă, cu propriile reglaje de poziție și mărime. În 0.2.1, pe lângă săgețile de stânga și dreapta, un sens giratoriu poate afișa numărul ieșirii într-un cerc, alături de distanță. Citirea este experimentală și confirmă o manevră nouă în două cadre. În 0.2.2, o captură ratată nu ascunde imediat o manevră recent confirmată. Manevra este retrasă la a doua citire ratată, la expirare, la ieșirea din CarPlay sau când se detectează o manevră diferită.
 
 Fiecare afișaj are un demo propriu în meniu. Poți regla poziția și mărimea pentru ETA, stânga, dreapta și giratoriu cu Waze închis pe ecranul central. Demo-ul cere starea READY și viteză zero, iar pe cluster necesită harta activă în bord. Preselectarea benzilor este disponibilă ca mostră. Citirea ei din Waze necesită validarea pe cadre CarPlay care conțin ghidajul de benzi.
+
+În 0.2.3, fundalul pentru ETA și manevre are colțuri rotunjite și se lărgește după conținut.
 
 Texturile Waze se randează la 3×, iar cele pentru semnalizări, CarPlay ETA din Metil’s HUD Apps și semnele din Speed Limit Romania la 2×. Dimensiunile afișate și reglajele salvate sunt aceleași.
 

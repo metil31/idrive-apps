@@ -8,6 +8,7 @@ const vm = require('vm');
 const zlib = require('zlib');
 const { model, readEta, readTurn } = require('../../tools/waze-eta-reader/ocr');
 const { state, KEEP, LEASE } = require('../../tools/waze-eta-reader/reader');
+const { ScaledCanvas } = require('../runtime/canvas');
 const atlas = require('../../tools/waze-eta-reader/eta-atlas.json');
 const templates = model([atlas]);
 
@@ -138,7 +139,7 @@ if (external.length) {
 }
 
 async function testHud() {
-    const draws = [], targets = [], commands = [], adjustments = [], dropped = [];
+    const draws = [], targets = [], commands = [], adjustments = [], dropped = [], frames = new Map();
     let appImpl, acceptCondition, acceptSpeed, payload, renderer, tick, changed;
     const net = {
         createConnection(_path, onConnect) {
@@ -154,20 +155,24 @@ async function testHud() {
             return socket;
         },
     };
-    class Canvas {
-        constructor() { this.d = Buffer.alloc(4); }
-        clear() { return this; }
-        roundRect() {}
-        text(text) { draws.push(text); }
-        textWidth() { return 100; }
-        polyline() {}
-        arc() {}
+    class RecordingCanvas extends ScaledCanvas {
+        text(text, ...args) {
+            draws.push(text);
+            return super.text(text, ...args);
+        }
     }
-    class ScaledCanvas extends Canvas { constructor() { super(); this.canvas = this; } }
+    function edges(ref, y) {
+        const { iw } = targets[ref - 1], px = frames.get(ref);
+        const row = px.subarray(y * iw * 4, (y + 1) * iw * 4);
+        let left = 0, right = iw - 1;
+        while (left < iw && row[left * 4 + 3] === 0) left++;
+        while (right >= left && row[right * 4 + 3] === 0) right--;
+        return { left, right, width: right - left + 1 };
+    }
     class Renderer extends EventEmitter {
         connect() { renderer = this; this.targets = 'map:1088x480,panel:1920x720'; this.emit('ready'); }
         image(options) { targets.push(options); return targets.length; }
-        pixels() { return true; }
+        pixels(ref, _regions, bytes) { frames.set(ref, bytes); return true; }
         set(ref, place) { adjustments.push({ ref, place }); }
         drop(ref) { dropped.push(ref); }
         status() {}
@@ -177,7 +182,7 @@ async function testHud() {
         net, './kit/display-preview': require('../runtime/display-preview'),
         './kit/menu-language': require('../runtime/menu-language'), './kit/mgu': { run: (value) => { appImpl = value; } },
         './kit/car': { conditionOf: (n) => n },
-        './kit/canvas': { Canvas, ScaledCanvas },
+        './kit/canvas': { ScaledCanvas: RecordingCanvas },
         './map-area': require('../../apps/waze_eta_ro/map-area'),
         './cluster_render_client': { ClusterRender: Renderer },
     };
@@ -209,6 +214,31 @@ async function testHud() {
     renderer.emit('status', 'layer 1 video of waze-on-cluster on map, content z 0: shown');
     assert.deepStrictEqual(targets.map(x => x.target), ['hud', 'map', 'map']);
     assert.deepStrictEqual(draws, ['09:48  ·  27 min  ·  25 km', '09:48  ·  27 min  ·  25 km', '70 m']);
+    const etaCenterRow = targets[1].ih / 2, turnCenterRow = targets[2].ih / 2;
+    const etaEdges = edges(2, etaCenterRow), turnEdges = edges(3, turnCenterRow);
+    assert.ok(etaEdges.width < targets[1].iw - 40 && turnEdges.width < targets[2].iw - 40,
+        'short labels leave no painted background in the unused side space');
+    for (const [ref, row, shape] of [[2, etaCenterRow, etaEdges], [3, turnCenterRow, turnEdges]]) {
+        const { iw } = targets[ref - 1];
+        const top = edges(ref, 6);
+        const index = (row * iw + shape.left + 9) * 4;
+        assert.deepStrictEqual(Array.from(frames.get(ref).subarray(index, index + 4)), [24, 27, 31, 207]);
+        assert.ok(top.left > shape.left && top.left - shape.left < 20 && top.right < shape.right,
+            'corners have a short radius and the straight top edge is retained');
+    }
+    const activePayload = payload;
+    payload = {
+        eta: { ...payload.eta, duration: '2 h 27 min', distance: '125 km' },
+        turn: { ...payload.turn, distance: '1.5 km' },
+    };
+    tick(); await flush();
+    assert.ok(edges(2, etaCenterRow).width > etaEdges.width);
+    assert.ok(edges(3, turnCenterRow).width > turnEdges.width);
+    assert.strictEqual(targets.length, 3, 'changing label width does not recreate the layers');
+    payload = activePayload;
+    tick(); await flush();
+    assert.deepStrictEqual(edges(2, etaCenterRow), etaEdges);
+    assert.deepStrictEqual(edges(3, turnCenterRow), turnEdges);
     config.clusterX = 554;
     changed();
     assert.strictEqual(adjustments.length, 1);

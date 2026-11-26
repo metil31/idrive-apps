@@ -99,16 +99,28 @@ function placement(settings, part, area, hosted) {
 
 function etaLabel(eta) { return eta.arrival + '  ·  ' + eta.duration + '  ·  ' + eta.distance; }
 
-function pill(part, value) {
+function drawOverlay(part, value) {
     const { w, h } = part;
     const cv = new ScaledCanvas(w, h, TEXTURE_SCALE);
     cv.clear();
-    cv.roundRect(1, 1, w - 2, h - 2, (h - 2) / 2, [24, 27, 31, 207]);
     const lanes = value.kind === 'lanes';
+    const text = part.turn ? (value.demo ? 'Demo ' : '') + value.distance : (value.demo ? 'Demo  ' : '') + etaLabel(value);
+    const style = { align: 'center', font: 'bold', literal: true };
+    const padding = 9, iconWidth = 28, leading = part.turn ? iconWidth + 8 : 0;
+    const maxTextWidth = w - 2 * padding - leading - 2;
+    const baseSize = 18;
+    const size = Math.min(baseSize, baseSize * maxTextWidth / Math.max(1, cv.textWidth(text, baseSize, style)));
+    const bodyWidth = Math.min(maxTextWidth, Math.max(lanes ? 50 : 0, Math.ceil(cv.textWidth(text, size, style))));
+    const cardWidth = 2 * padding + leading + bodyWidth;
+    // Keep the layer and its anchor stable as the numbers change.
+    const left = (w - cardWidth) / 2, y = h / 2;
+    const iconCenter = left + padding + iconWidth / 2;
+    const textCenter = left + padding + leading + bodyWidth / 2;
+    cv.roundRect(left, 1, cardWidth, h - 2, 7, [24, 27, 31, 207]);
     if (lanes) {
-        const y = h / 2, center = (w + 43) / 2;
-        cv.polyline([[26, y + 13], [26, y - 13], [20, y - 6]], 3.5, '#ffffff');
-        cv.polyline([[26, y - 13], [32, y - 6]], 3.5, '#ffffff');
+        const center = textCenter;
+        cv.polyline([[iconCenter, y + 13], [iconCenter, y - 13], [iconCenter - 6, y - 6]], 3.5, '#ffffff');
+        cv.polyline([[iconCenter, y - 13], [iconCenter + 6, y - 6]], 3.5, '#ffffff');
         for (const [i, x] of [center - 18, center, center + 18].entries()) {
             const color = i === 2 ? '#838a93' : '#ffffff';
             const endX = i === 2 ? x + 5 : x, endY = y + 4;
@@ -119,22 +131,18 @@ function pill(part, value) {
             if (i < 2) cv.polyline([[x + 9, endY + 1], [x + 9, y + 15]], 1, '#565d66');
         }
     } else if (part.turn && value.kind === 'roundabout') {
-        const x = 32, y = h / 2;
+        const x = iconCenter;
         cv.arc(x, y, 10, 13, 0, 360, '#7a8188');
         cv.arc(x, y, 9, 13, 20, 284, '#ffffff');
         cv.polyline([[x - 10, y + 6], [x - 10, y + 15]], 4, '#ffffff');
         cv.text(String(value.exit), x, y + 5, 15, '#ffffff', { align: 'center', font: 'bold', literal: true });
     } else if (part.turn) {
-        const x = n => value.kind === 'right' ? 23 + n : 23 + 25 - n;
-        const y = h / 2 - 13;
-        cv.polyline([[x(0), y + 24], [x(0), y + 15], [x(3), y + 9], [x(9), y + 5], [x(23), y + 5]], 4, '#ffffff');
-        cv.polyline([[x(17), y], [x(23), y + 5], [x(17), y + 10]], 4, '#ffffff');
+        const x = n => iconCenter + (value.kind === 'right' ? n - 12 : 12 - n);
+        const top = y - 13;
+        cv.polyline([[x(0), top + 24], [x(0), top + 15], [x(3), top + 9], [x(9), top + 5], [x(23), top + 5]], 4, '#ffffff');
+        cv.polyline([[x(17), top], [x(23), top + 5], [x(17), top + 10]], 4, '#ffffff');
     }
-    const text = part.turn ? (value.demo ? 'Demo ' : '') + value.distance : (value.demo ? 'Demo  ' : '') + etaLabel(value), offset = part.turn ? 43 : 0;
-    const style = { align: 'center', font: 'bold', literal: true };
-    const measured = cv.textWidth(text, 18, style);
-    const size = Math.min(18, 18 * (w - offset - 18) / Math.max(1, measured));
-    cv.text(text, (w + offset) / 2, lanes ? h / 2 - 2 : h / 2 + size * 0.34, size, '#ffffff', style);
+    cv.text(text, textCenter, lanes ? y - 2 : y + size * 0.34, size, '#ffffff', style);
     const pixels = cv.canvas.d;
     return Buffer.from(pixels.buffer, pixels.byteOffset, pixels.byteLength);
 }
@@ -215,7 +223,7 @@ function background({ app, settings, signals, log }) {
             } else if (shape !== layer.shape) { client.set(layer.ref, rect); layer.shape = shape; }
             const value = values.get(part);
             const key = (value.demo ? 'demo:' : '') + (part.turn ? [value.kind, value.exit, value.distance].join(':') : etaLabel(value));
-            if (layer.key !== key && client.pixels(layer.ref, null, pill(part, value))) layer.key = key;
+            if (layer.key !== key && client.pixels(layer.ref, null, drawOverlay(part, value))) layer.key = key;
         }
     }
     async function refresh() {

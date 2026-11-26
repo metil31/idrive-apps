@@ -46,22 +46,37 @@ async function verify() {
     for (const [label, x, , size, , options] of labels) {
         assert.ok(label.endsWith('...') && x + narrow.textWidth(label, size, options) <= 200);
     }
-    const pillCanvas = new Canvas(250, 68).clear();
-    drawTrack(pillCanvas, song, image, true);
-    const hasPill = (bytes) => bytes.some((value, i) =>
+    const cardCanvas = new Canvas(250, 68).clear();
+    drawTrack(cardCanvas, song, image, true);
+    const hasBackground = (bytes) => bytes.some((value, i) =>
         i % 4 === 0 && value === 23 && bytes[i + 1] === 25 && bytes[i + 2] === 29 && bytes[i + 3] === 208);
-    assert.ok(hasPill(pillCanvas.d) && pillCanvas.d[3] === 0, 'map pill has a translucent centre and clear corners');
-    assert.strictEqual(pillCanvas.d[(5 * 250 + 125) * 4 + 3], 208, 'pill extends above the cover');
-    assert.strictEqual(pillCanvas.d[(62 * 250 + 125) * 4 + 3], 208, 'pill extends below the cover');
+    assert.ok(hasBackground(cardCanvas.d) && cardCanvas.d[3] === 0, 'map card has a translucent centre and clear corners');
+    assert.strictEqual(cardCanvas.d[(5 * 250 + 125) * 4 + 3], 208, 'card extends above the cover');
+    assert.strictEqual(cardCanvas.d[(62 * 250 + 125) * 4 + 3], 208, 'card extends below the cover');
+    function rowWidth(canvas, y) {
+        let count = 0;
+        for (let x = 0; x < canvas.w; x++) if (canvas.d[(y * canvas.w + x) * 4 + 3]) count++;
+        return count;
+    }
+    const shortTrack = { title: 'Hi', artist: 'X' };
+    const shortCard = new Canvas(250, 68).clear(), noCover = new Canvas(250, 68).clear();
+    drawTrack(shortCard, shortTrack, image, true);
+    drawTrack(noCover, shortTrack, null, true);
+    const mid = rowWidth(shortCard, 34);
+    assert.ok(rowWidth(noCover, 34) < mid && mid < rowWidth(cardCanvas, 34),
+        'the background fits the track length and appears wider when it has a cover');
+    assert.ok(rowWidth(shortCard, 5) < mid && mid - rowWidth(shortCard, 5) < 14,
+        'the card has gently rounded corners');
+    assert.ok(mid < 100, 'a short title and cover use less than half the map texture');
     const labelsOnBoard = [];
-    pillCanvas.text = (...args) => { labelsOnBoard.push(args); };
-    drawTrack(pillCanvas, long, image, true);
+    cardCanvas.text = (...args) => { labelsOnBoard.push(args); };
+    drawTrack(cardCanvas, long, image, true);
     assert.strictEqual(labelsOnBoard.length, 2);
     for (const [label, x, , size, , options] of labelsOnBoard) {
-        assert.ok(label.endsWith('...') && x + pillCanvas.textWidth(label, size, options) <= 222,
+        assert.ok(label.endsWith('...') && x + cardCanvas.textWidth(label, size, options) <= 222,
             'long board lines leave room for the cover and end padding');
     }
-    assert.ok(!hasPill(artCanvas.d), 'the windshield texture stays transparent behind the text');
+    assert.ok(!hasBackground(artCanvas.d), 'the windshield texture stays transparent behind the text');
     assert.strictEqual(art.get(Object.assign({}, trackWithCover, { title: 'Altă melodie' }), true), null);
     await new Promise((resolve) => setImmediate(resolve));
     assert.strictEqual(art.get(Object.assign({}, trackWithCover, { title: 'Altă melodie' }), true), null);
@@ -131,7 +146,7 @@ async function verify() {
         assert.deepStrictEqual([cr.spec.iw, cr.spec.ih, cr.spec.sampling], [500, 136, 'bilinear']);
         const boardFrame = cr.frames[cr.frames.length - 1];
         assert.strictEqual(boardFrame.length, 500 * 136 * 4);
-        assert.ok(hasPill(boardFrame), 'the map uses a high-resolution translucent pill');
+        assert.ok(hasBackground(boardFrame), 'the map uses a high-resolution translucent pill');
         values.clusterSize = 150;
         changed();
         assert.strictEqual(cr.change.w, 375, 'board media stays narrow at maximum size');
