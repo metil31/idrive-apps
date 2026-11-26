@@ -111,10 +111,16 @@ function start(ctx) {
         for (const id of Object.keys(lines)) show(id, lines[id], (v) => ui.text(id, v));
     }
     settings.onChange(render);
-    ui.onVisible((name, visible) => { if (name === 'MAIN' && visible) render(); });
-    const timer = setInterval(render, 1000);
-    app.on('shutdown', () => clearInterval(timer));
-    render();
+    let timer;
+    function visible(open) {
+        clearInterval(timer);
+        if (!open) return;
+        render();
+        timer = setInterval(render, 1000);
+    }
+    ui.onVisible((name, open) => { if (name === 'MAIN') visible(open); });
+    app.on('shutdown', () => visible(false));
+    visible(ui.isVisible('MAIN'));
 }
 
 mgu.run({ background, start });

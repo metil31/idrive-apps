@@ -10,7 +10,7 @@ const { displayPreview } = require('./kit/display-preview');
 const { menuLanguage } = require('./kit/menu-language');
 
 const SOCKET = '/run/waze-eta-reader/control.sock';
-const TEXTURE_SCALE = 3;
+const TEXTURE_SCALE = 3, GLASS_SCALE = 4;
 const SIZE = [70, 80, 90, 100, 110, 120, 130];
 const HUD = { x: 0, y: 0, w: 800, h: 480 };
 const PARTS = [
@@ -168,6 +168,44 @@ function drawOverlay(part, value) {
     return Buffer.from(pixels.buffer, pixels.byteOffset, pixels.byteLength);
 }
 
+const isClusterEta = part => part.target === 'map' && !part.turn;
+const GLASS_STOPS = [
+    [0, [132, 155, 200, 166]],
+    [0.10, [99, 121, 163, 166]],
+    [0.46, [50, 64, 95, 185]],
+    [1, [39, 48, 74, 185]],
+];
+
+function glassFrame(part, value, previous) {
+    const text = (value.demo ? 'Demo  ' : '') + etaLabel(value);
+    const style = { align: 'center', font: 'bold', literal: true };
+    const padding = 13, margin = 2, font = 18, height = part.h;
+    const measure = new ScaledCanvas(1, 1, GLASS_SCALE);
+    const natural = measure.textWidth(text, font, style), room = part.w - 2 * (padding + margin);
+    const size = Math.min(font, font * room / Math.max(1, natural));
+    const card = Math.min(part.w - 2 * margin, Math.ceil(measure.textWidth(text, size, style)) + 2 * padding);
+    const width = Math.max(card + 2 * margin, previous || 0);
+    const cv = new ScaledCanvas(width, height, GLASS_SCALE).clear();
+    const x = (width - card) / 2, radius = 14;
+    cv.card(x, 2, card, height - 4, radius, GLASS_STOPS);
+    cv.strokeRoundRect(x, 2, card, height - 4, radius, 0.75, [222, 237, 255, 103]);
+    cv.line(x + radius, 3, x + card - radius, 3, 0.6, [235, 245, 255, 63]);
+    cv.text(text, width / 2, height / 2 + size * 0.34 + 0.7, size, [10, 18, 31, 143], style);
+    cv.text(text, width / 2, height / 2 + size * 0.34, size, '#ffffff', style);
+    const pixels = cv.canvas.d;
+    // A width change repaints the union to erase old edges. Otherwise only
+    // the text band changes, so the glass rim need not be uploaded again.
+    const unchangedWidth = card + 2 * margin === previous;
+    const stride = width * GLASS_SCALE * 4;
+    const y0 = unchangedWidth ? 8 * GLASS_SCALE : 0;
+    const y1 = (unchangedWidth ? height - 8 : height) * GLASS_SCALE;
+    return {
+        area: { x: (part.w - width) * GLASS_SCALE / 2, y: y0, w: width * GLASS_SCALE, h: y1 - y0 },
+        pixels: Buffer.from(pixels.buffer, pixels.byteOffset + y0 * stride, (y1 - y0) * stride),
+        width: card + 2 * margin,
+    };
+}
+
 function background({ app, settings, signals, log }) {
     let data = { code: 'idle' }, pending = false, ready = false, stopped = false, watch, leased = false;
     let client, connected = false, host, maps, lastStatus = 0, asked = null;
@@ -237,14 +275,22 @@ function background({ app, settings, signals, log }) {
             if (!rect) continue;
             const shape = JSON.stringify(rect);
             if (!layer) {
+                const scale = isClusterEta(part) ? GLASS_SCALE : TEXTURE_SCALE;
                 const ref = client.image(Object.assign({ target, klass: 'overlay', z: part.turn ? 13 : 12,
-                    iw: part.w * TEXTURE_SCALE, ih: part.h * TEXTURE_SCALE, sampling: 'bilinear', fps: 2, contend: 0, yield: 1 }, rect));
+                    iw: part.w * scale, ih: part.h * scale, sampling: 'bilinear', fps: 2, contend: 0, yield: 1 }, rect));
                 if (!ref) continue;
                 layers.set(part, layer = { ref, target, shape });
             } else if (shape !== layer.shape) { client.set(layer.ref, rect); layer.shape = shape; }
             const value = values.get(part);
             const key = (value.demo ? 'demo:' : '') + (part.turn ? [value.kind, value.exit, value.distance, JSON.stringify(value.lanes)].join(':') : etaLabel(value));
-            if (layer.key !== key && client.pixels(layer.ref, null, drawOverlay(part, value))) layer.key = key;
+            if (layer.key === key) continue;
+            if (isClusterEta(part)) {
+                const frame = glassFrame(part, value, layer.width);
+                if (client.pixels(layer.ref, [frame.area], frame.pixels)) {
+                    layer.width = frame.width;
+                    layer.key = key;
+                }
+            } else if (client.pixels(layer.ref, null, drawOverlay(part, value))) layer.key = key;
         }
     }
     async function refresh() {
@@ -262,12 +308,16 @@ function background({ app, settings, signals, log }) {
         draw();
         if (reading !== want()) refresh();
     }
-    const tick = () => { draw(); refresh(); };
+    let timer = null;
+    function pollWhileEnabled() {
+        if (want() && timer === null) timer = setInterval(tick, 1000);
+        if (!want() && timer !== null) { clearInterval(timer); timer = null; }
+    }
+    function tick() { pollWhileEnabled(); draw(); refresh(); }
     signals.watch('de.bmw.infrastructure.VehicleCondition', '1', {
         VehicleCondition: (v) => { ready = conditionOf(v && v.statusConditionVehicle) === 10; if (!ready) preview.stop(); tick(); },
     }, log).then((sub) => { if (stopped) sub.shutdown(); else watch = sub; }).catch(() => {});
     settings.onChange(tick);
-    const timer = setInterval(tick, 1000);
     app.on('shutdown', () => {
         stopped = true;
         clearInterval(timer); preview.stop(); close();

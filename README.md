@@ -14,15 +14,17 @@ The menus default to English. Select **Language → Romana** for Romanian withou
 
 | App | Current version | Function |
 | --- | --- | --- |
-| **Metil's HUD Apps** | 0.2.2 | Turn signals, native CarPlay ETA, and now-playing information |
-| **Waze ETA iOS** | 0.3.0 | Waze ETA, turns, roundabout exit number, lane guidance and forks |
-| **Speed Limit Romania** | 1.3.0 | Offline speed limits, cameras and priority signs, with an optional Waze limit |
-| **Seat Comfort** | 0.1.1 | Automatic front-seat heating at a cold start |
-| **Waze CarPlay Reader** | 0.3.0 | Shared capture tool for Waze ETA iOS and the optional Speed Limit Romania source |
+| **Metil's HUD Apps** | 0.2.3 | Turn signals, native CarPlay ETA, and now-playing information |
+| **Waze ETA iOS** | 0.3.1 | Waze ETA, turns, roundabout exit number, lane guidance and forks |
+| **Speed Limit Romania** | 1.3.1 | Offline speed limits, cameras and priority signs, with an optional Waze limit |
+| **Seat Comfort** | 0.1.2 | Automatic front-seat heating at a cold start |
+| **Waze CarPlay Reader** | 0.3.1 | Shared capture tool for Waze ETA iOS and the optional Speed Limit Romania source |
 
 ## Waze ETA iOS
 
-Enable arrival and maneuvers independently for the windshield HUD and the cluster map. Keep an active Waze route visible on the centre CarPlay screen. The reader samples approximately every four seconds and supports the tested 8:3 CarPlay layout. Its navigation overlays use compact, content-width backgrounds with rounded corners and 3× textures. Use the built-in demos to position ETA, left and right turns, roundabouts, lanes and forks independently of Waze.
+Enable arrival and maneuvers independently for the windshield HUD and the cluster map. Keep an active Waze route visible on the centre CarPlay screen. The reader samples approximately every four seconds and supports the tested 8:3 CarPlay layout. Use the built-in demos to position ETA, left and right turns, roundabouts, lanes and forks independently of Waze.
+
+Cluster-map ETA uses a translucent blue-grey glass treatment with a fine highlight and a background that fits the text. It renders to a 1080 × 192 texture at 4× scale and sends only the changed region when the label updates. The HUD and maneuver overlays use 3× textures. The reader schedules captures only while an app requests data and the CarPlay capture gate permits it.
 
 - For a fork, the recommended branch is white and the other branch is muted. A roundabout shows the exit number inside a small circle next to the distance.
 - Experimental lane recognition looks for the lane row inside the full-screen Waze maneuver card. It can distinguish a recommended turn within a lane that also allows going straight. Unrecognized rows and rows without a distinguishable recommendation are omitted.
@@ -49,6 +51,8 @@ See [data provenance and verification](projects/speed-limit/VERIFICARE.md) for t
 The native iDrive menu has separate pages for **Media**, **Turn signals**, and **Native CarPlay ETA**. The native ETA uses route estimates sent directly to iDrive by compatible navigation apps. Waze ETA iOS reads the visible Waze interface separately.
 
 Media shows the current song and artist on the HUD, the active cluster map, or both, with independent position and size. Album art is optional and depends on the source. On the cluster map, the rounded background fits the title, artist and cover. On the HUD, Media remains transparent behind its text. Enable **Show song and artist** in the Media page. If the old standalone Media HUD app is still installed, turn off its display before enabling the merged one. [Credits and licenses](projects/sound-drive/apps/hud_romania/NOTICE)
+
+Turn signals and native ETA schedule updates for the next visible change. Media checks artwork and playback availability while a track or demo is displayed.
 
 ## Seat Comfort
 

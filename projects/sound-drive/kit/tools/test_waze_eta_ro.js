@@ -200,8 +200,67 @@ if (external.length) {
     }
 }
 
+async function testReaderScheduling() {
+    let now = 1000, acceptSocket, finishCapture, captures = 0, sequence = 0;
+    const timers = new Map(), listeners = new Map();
+    const dependencies = {
+        fs: { unlinkSync() {} },
+        net: { createServer(handler) { acceptSocket = handler; return { listen() {} }; } },
+        child_process: { execFile(_file, _args, _options, done) { captures++; finishCapture = done; } },
+        './ocr': {},
+        '/usr/lib/someip.node': { buildProxy: () => ({
+            async init() {},
+            async subscribe({ name, onReceive }) { listeners.set(name, onReceive); },
+        }) },
+    };
+    const file = path.join(__dirname, '../../tools/waze-eta-reader/reader.js');
+    vm.runInNewContext(fs.readFileSync(file, 'utf8') + '\nrun();', {
+        module: { exports: {} }, require: name => dependencies[name], Date: { now: () => now },
+        setTimeout(fire, delay) { const id = ++sequence; timers.set(id, { fire, delay }); return id; },
+        clearTimeout: id => timers.delete(id),
+    });
+    await new Promise(resolve => setImmediate(resolve));
+    function command(name) {
+        const socket = new EventEmitter();
+        socket.setTimeout = socket.pause = socket.end = () => {};
+        acceptSocket(socket);
+        socket.emit('data', Buffer.from(name + '\n'));
+    }
+    function fireTimer(delay) {
+        assert.strictEqual(timers.size, 1);
+        const [id, timer] = timers.entries().next().value;
+        assert.strictEqual(timer.delay, delay);
+        timers.delete(id);
+        now += delay;
+        timer.fire();
+    }
+    const screen = listeners.get('onScreenChange');
+    screen('PROJECTED');
+    assert.strictEqual(timers.size, 0, 'no capture timer without a lease');
+    command('start');
+    command('limit');
+    fireTimer(0);
+    command('start');
+    assert.strictEqual(timers.size, 0, 'in-flight capture is not duplicated');
+    finishCapture({ code: 1 });
+    assert.strictEqual(timers.size, 1);
+    screen('NATIVE');
+    assert.strictEqual(timers.size, 0, 'native screen stops capture scheduling');
+    screen('PROJECTED');
+    command('stop');
+    fireTimer(4000);
+    assert.strictEqual(captures, 2, 'the limit lease keeps capturing independently');
+    finishCapture({ code: 1 });
+    now += LEASE;
+    fireTimer(4000);
+    assert.strictEqual(captures, 2);
+    assert.strictEqual(timers.size, 0, 'an expired lease does not rearm capture');
+}
+
 async function testHud() {
-    const draws = [], targets = [], commands = [], adjustments = [], dropped = [], frames = new Map();
+    const draws = [], targets = [], commands = [], adjustments = [], dropped = [], frames = new Map(), uploads = [];
+    const timers = new Set();
+    let menuTimer;
     let appImpl, acceptCondition, acceptSpeed, payload, renderer, tick, changed;
     const net = {
         createConnection(_path, onConnect) {
@@ -219,7 +278,7 @@ async function testHud() {
     };
     class RecordingCanvas extends ScaledCanvas {
         text(text, ...args) {
-            draws.push(text);
+            if (args[3] === '#ffffff') draws.push(text);
             return super.text(text, ...args);
         }
     }
@@ -234,7 +293,19 @@ async function testHud() {
     class Renderer extends EventEmitter {
         connect() { renderer = this; this.targets = 'map:1088x480,panel:1920x720'; this.emit('ready'); }
         image(options) { targets.push(options); return targets.length; }
-        pixels(ref, _regions, bytes) { frames.set(ref, bytes); return true; }
+        pixels(ref, regions, bytes) {
+            const { iw, ih } = targets[ref - 1];
+            uploads.push({ ref, regions, bytes: bytes.length });
+            if (regions) {
+                const next = frames.get(ref) || Buffer.alloc(iw * ih * 4);
+                const [r] = regions;
+                for (let y = 0; y < r.h; y++) {
+                    bytes.copy(next, ((y + r.y) * iw + r.x) * 4, y * r.w * 4, (y + 1) * r.w * 4);
+                }
+                frames.set(ref, next);
+            } else frames.set(ref, bytes);
+            return true;
+        }
         set(ref, place) { adjustments.push({ ref, place }); }
         drop(ref) { dropped.push(ref); }
         status() {}
@@ -249,7 +320,13 @@ async function testHud() {
         './cluster_render_client': { ClusterRender: Renderer },
     };
     vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../../apps/waze_eta_ro/main.js'), 'utf8'), {
-        require: (name) => deps[name], Buffer, setInterval: (fn) => { if (!tick) tick = fn; return 0; }, clearInterval() {},
+        require: (name) => deps[name], Buffer, setInterval(fn) {
+            if (!tick) tick = fn;
+            else menuTimer = fn;
+            timers.add(fn);
+            return fn;
+        },
+        clearInterval: fn => timers.delete(fn),
     });
     const app = new EventEmitter();
     const config = { hud: true, cluster: true, turnCluster: true, turnHud: false };
@@ -268,6 +345,7 @@ async function testHud() {
     payload = { eta: Object.assign({ at: Date.now() }, synthetic), turn: Object.assign({ at: Date.now() }, left) };
     await service.refresh();
     assert.deepStrictEqual(commands, []);
+    assert.strictEqual(timers.size, 0, 'no polling while the vehicle is off');
     acceptCondition({ statusConditionVehicle: 10 });
     const flush = () => new Promise(resolve => setImmediate(resolve));
     await flush();
@@ -278,16 +356,23 @@ async function testHud() {
     assert.deepStrictEqual(draws, ['09:48  ·  27 min  ·  25 km', '09:48  ·  27 min  ·  25 km', '70 m']);
     const etaCenterRow = targets[1].ih / 2, turnCenterRow = targets[2].ih / 2;
     const etaEdges = edges(2, etaCenterRow), turnEdges = edges(3, turnCenterRow);
+    assert.strictEqual(targets[1].iw, targets[1].w * 4);
+    assert.strictEqual(targets[1].ih, targets[1].h * 4);
+    const firstEta = uploads.find(frame => frame.ref === 2);
+    assert.ok(firstEta.regions && firstEta.bytes < targets[1].iw * targets[1].ih * 4);
+    const glass = frames.get(2);
+    const pixel = (x, y) => Array.from(glass.subarray((y * targets[1].iw + x) * 4, (y * targets[1].iw + x) * 4 + 4));
+    const glassTop = pixel(etaEdges.left + 24, 55), glassBottom = pixel(etaEdges.left + 24, 145);
+    assert.ok(glassTop[3] > 0 && glassTop[3] < 255 && glassBottom[3] < 255, 'glass is translucent');
+    assert.notDeepStrictEqual(glassTop, glassBottom, 'glass shade changes vertically');
+    assert.ok(glassTop[2] > glassTop[0], 'glass has a subtle blue tint');
     assert.ok(etaEdges.width < targets[1].iw - 40 && turnEdges.width < targets[2].iw - 40,
         'short labels leave no painted background in the unused side space');
-    for (const [ref, row, shape] of [[2, etaCenterRow, etaEdges], [3, turnCenterRow, turnEdges]]) {
-        const { iw } = targets[ref - 1];
-        const top = edges(ref, 6);
-        const index = (row * iw + shape.left + 9) * 4;
-        assert.deepStrictEqual(Array.from(frames.get(ref).subarray(index, index + 4)), [24, 27, 31, 207]);
-        assert.ok(top.left > shape.left && top.left - shape.left < 20 && top.right < shape.right,
-            'corners have a short radius and the straight top edge is retained');
-    }
+    const turnTop = edges(3, 6);
+    const at = (turnCenterRow * targets[2].iw + turnEdges.left + 9) * 4;
+    assert.deepStrictEqual(Array.from(frames.get(3).subarray(at, at + 4)), [24, 27, 31, 207]);
+    assert.ok(turnTop.left > turnEdges.left && turnTop.left - turnEdges.left < 20 && turnTop.right < turnEdges.right,
+        'maneuvers retain their gently rounded style');
     const activePayload = payload;
     payload = {
         eta: { ...payload.eta, duration: '2 h 27 min', distance: '125 km' },
@@ -301,6 +386,13 @@ async function testHud() {
     tick(); await flush();
     assert.deepStrictEqual(edges(2, etaCenterRow), etaEdges);
     assert.deepStrictEqual(edges(3, turnCenterRow), turnEdges);
+    payload = { ...activePayload, eta: { ...activePayload.eta, arrival: '08:49' } };
+    tick(); await flush();
+    const textUpdate = uploads[uploads.length - 1];
+    assert.strictEqual(textUpdate.ref, 2);
+    assert.strictEqual(textUpdate.regions[0].y, 8 * 4, 'same-width updates leave the top rim intact');
+    assert.strictEqual(textUpdate.regions[0].h, (48 - 16) * 4);
+    payload = activePayload;
     config.clusterX = 554;
     changed();
     assert.strictEqual(adjustments.length, 1);
@@ -352,9 +444,10 @@ async function testHud() {
     acceptCondition({ statusConditionVehicle: 5 });
     await flush();
     assert.strictEqual(commands.slice(-1)[0], 'stop');
+    assert.ok(!timers.has(tick) && !timers.has(menuTimer), 'polling stops when leaving READY and closing the menu');
     app.emit('shutdown');
 }
 
-testHud().then(() => {
+testReaderScheduling().then(testHud).then(() => {
     console.log('Waze: citire automată, sosire, viraje, poziții independente și hartă găzduită verificate');
 }).catch((err) => { console.error(err); process.exitCode = 1; });

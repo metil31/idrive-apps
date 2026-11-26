@@ -9,7 +9,7 @@ const MEDIA = 'de.bmw.infotainment.entertainment.mediaplayer.MediaPlayer';
 function startService(ctx, deps) {
     const { signals, settings, log, app } = ctx;
     const out = new MediaOutput(deps.makeClient, deps.Canvas, deps.ScaledCanvas);
-    let awake = false, track = null, playing = false, stopped = false, player = null, wasAvailable = false;
+    let awake = false, track = null, playing = false, stopped = false, player = null, wasAvailable = false, timer = null;
     const subs = [];
     const outputTrack = () => settings.get('enabled') && awake && player && player.available && playing ? track : null;
     const sampleTrack = { title: 'Demo · Midnight Drive', artist: 'Metil' };
@@ -21,7 +21,15 @@ function startService(ctx, deps) {
         const sample = deps.preview && deps.preview();
         const target = sample === 'mediaHud' ? 'hud' : sample === 'mediaCluster' ? 'cluster' : null;
         const display = target ? { get: key => key === 'show' ? target : settings.get(key) } : settings;
-        out.update(target ? sampleTrack : outputTrack(), display);
+        const activeTrack = target ? sampleTrack : outputTrack();
+        out.update(activeTrack, display);
+        if (activeTrack && timer === null) {
+            timer = setInterval(tick, 250);
+            if (timer.unref) timer.unref();
+        } else if (!activeTrack && timer !== null) {
+            clearInterval(timer);
+            timer = null;
+        }
     };
     function watch(iface, instance, handlers) {
         const wrapped = {};
@@ -46,8 +54,6 @@ function startService(ctx, deps) {
         playerState: (value) => { playing = isPlaying(value); },
     }).then((sub) => { if (!stopped && sub) { player = sub; tick(); } });
     settings.onChange(tick);
-    const timer = setInterval(tick, 250);
-    if (timer.unref) timer.unref();
     const stop = () => {
         if (stopped) return;
         stopped = true;

@@ -2,6 +2,7 @@
 
 const INDICATOR_MS = 8000;
 const ETA_MS = 30000;
+const BLINK_HALF_MS = 400;
 const LIMIT = 7 * 86400;
 const LEFT = [7, 9, 18, 20, 22];
 const RIGHT = [8, 10, 19, 21, 23];
@@ -189,10 +190,16 @@ class HudState {
     view(now, settings) {
         const direction = this.awake && settings.get('indicators') && fresh(now, this.signalAt, INDICATOR_MS)
             ? this.signal : 'off';
-        const bright = ((now - this.blinkAt) % 800) < 400;
+        const bright = ((now - this.blinkAt) % (2 * BLINK_HALF_MS)) < BLINK_HALF_MS;
         const eta = this.awake && settings.get('eta') && this.carplayRoute() &&
             this.route && fresh(now, this.routeAt, ETA_MS) ? routeLabel(this.route, settings.get('menuLanguage') === 'ro') : '';
         return { direction, bright, eta };
+    }
+
+    nextUpdate(now, view) {
+        const blink = view.direction === 'off' ? Infinity :
+            Math.min(this.signalAt + INDICATOR_MS - now, BLINK_HALF_MS - (now - this.blinkAt) % BLINK_HALF_MS);
+        return Math.min(blink, view.eta ? this.routeAt + ETA_MS - now : Infinity);
     }
 }
 

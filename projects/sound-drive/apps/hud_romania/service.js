@@ -14,13 +14,19 @@ function startService(ctx, deps) {
     const now = deps.now || Date.now;
     const state = new HudState();
     const out = new HudOutput(deps.makeClient, deps.ScaledCanvas);
-    let stopped = false;
+    let stopped = false, timer;
     const subscriptions = [];
     const retryTimers = new Set();
     const view = () => state.view(now(), settings);
     const tick = () => {
         if (stopped) return;
-        const sample = deps.preview && deps.preview(), live = view();
+        const at = now(), live = state.view(at, settings), delay = state.nextUpdate(at, live);
+        const sample = deps.preview && deps.preview();
+        clearTimeout(timer);
+        if (Number.isFinite(delay)) {
+            timer = setTimeout(tick, Math.max(1, delay));
+            if (timer.unref) timer.unref();
+        }
         if (sample === 'indicators') { live.direction = 'both'; live.bright = true; }
         if (sample === 'eta') live.eta = 'Demo · 16:28 · 12 min · 6 km';
         out.update(live, settings);
@@ -63,12 +69,10 @@ function startService(ctx, deps) {
     watch(GUIDANCE, 'Main_Instance', { waypoints: (v) => state.setWaypoints(v, now()) });
     watch(PROVIDER, 'Main_Instance', { guidingProvider: (v) => state.setProvider(v) });
     settings.onChange(tick);
-    const timer = setInterval(tick, 100);
-    if (timer.unref) timer.unref();
     const stop = () => {
         if (stopped) return;
         stopped = true;
-        clearInterval(timer);
+        clearTimeout(timer);
         retryTimers.forEach(clearTimeout);
         retryTimers.clear();
         out.stop();

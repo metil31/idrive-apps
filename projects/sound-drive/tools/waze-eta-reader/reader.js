@@ -4,7 +4,6 @@ const fs = require('fs');
 const net = require('net');
 const { execFile } = require('child_process');
 const { model, readEta, readTurn, readSpeedLimit, hasWazeDock } = require('./ocr');
-const FONT = require('./eta-atlas.json');
 const INTERVAL = 4000;
 const KEEP = 120000;
 const TURN_KEEP = 9500;
@@ -52,6 +51,7 @@ function state(now) {
         setGuidance(value) { guidance = value === true || value === 1; },
         captureToken() { return active() && canCapture() ? generation : null; },
         wantsLimit: () => leased('limit'),
+        wantsNavigation: () => leased('navigation'),
         result(token, value, reason, turn, limit, capturedAt = now()) {
             if (!active() || !canCapture() || token !== generation) return;
             if (!leased('limit') || !value || !limit) clearLimit();
@@ -107,7 +107,8 @@ function state(now) {
 }
 
 function run() {
-    const probe = state(Date.now), templates = model([FONT]);
+    const probe = state(Date.now);
+    let templates;
     const interfaceInfo = {
         name: 'CarPlayManager', serviceId: 64353, version: { major: 0, minor: 5 },
         instances: { CarPlayManagerInst1: 128 }, methods: {},
@@ -119,28 +120,44 @@ function run() {
     let gateStatus = 'initializing';
     Promise.resolve().then(() => require('/usr/lib/someip.node').buildProxy(interfaceInfo, 'CarPlayManagerInst1')).then(async (proxy) => {
         await proxy.init();
-        const guidance = (value) => probe.setGuidance(value && typeof value === 'object' ? value.projectedGuidanceActive : value);
+        const guidance = (value) => {
+            probe.setGuidance(value && typeof value === 'object' ? value.projectedGuidanceActive : value);
+            scheduleCapture();
+        };
         Promise.resolve().then(() => proxy.subscribe({ name: 'projectedGuidanceActive', onReceive: guidance }))
             .then(() => proxy.getValue && proxy.getValue('projectedGuidanceActive').then(guidance)).catch(() => {});
         await proxy.subscribe({ name: 'onScreenChange', onReceive: (value) => {
             const owner = value && typeof value === 'object' ? value.screenOwner : value;
             if (owner === 0 || owner === 'PROJECTED') probe.setFront(true);
             if (owner === 1 || owner === 'NATIVE') probe.setFront(false);
+            scheduleCapture();
         } });
         gateStatus = 'ready';
         if (proxy.subscribeToAvailability) {
-            try { await proxy.subscribeToAvailability((available) => { if (!available) { probe.setGuidance(false); probe.setFront(null); } }); }
+            try { await proxy.subscribeToAvailability((available) => {
+                if (!available) { probe.setGuidance(false); probe.setFront(null); scheduleCapture(); }
+            }); }
             catch (error) { console.warn('CarPlay availability: ' + error.message); }
         }
     }).catch((error) => { gateStatus = 'unavailable'; console.error('CarPlay: ' + error.message); });
 
-    let capturing = false;
+    let capturing = false, timer = null, nextCapture = 0;
     let captureDetail = '';
     function clearFrame() { try { fs.unlinkSync(FRAME); } catch (error) {} }
+    function scheduleCapture() {
+        if (probe.captureToken() === null) {
+            if (timer !== null) clearTimeout(timer);
+            timer = null;
+            return;
+        }
+        if (capturing || timer !== null) return;
+        timer = setTimeout(() => { timer = null; capture(); }, Math.max(0, nextCapture - Date.now()));
+    }
     function capture() {
         const token = probe.captureToken(), capturedAt = Date.now();
         if (capturing || token === null) return;
         capturing = true;
+        nextCapture = capturedAt + INTERVAL;
         clearFrame();
         execFile('/usr/bin/winston-grabber', ['-s', 'center', '-n', '1', FRAME], { timeout: 6000 }, (error) => {
             try {
@@ -157,18 +174,19 @@ function run() {
                 captureDetail = dims ? dims.join(' × ') : size + ' bytes';
                 if (!dims) { probe.result(token, null, 'capture-format'); return; }
                 const frame = fs.readFileSync(FRAME);
+                if (!templates) templates = model([require('./eta-atlas.json')]);
                 const eta = readEta(frame, dims[0], dims[1], templates);
-                const metric = eta && / (m|km)$/.test(eta.distance) && hasWazeDock(frame, dims[0], dims[1]);
-                const limit = probe.wantsLimit() && metric ? readSpeedLimit(frame, dims[0], dims[1], templates, eta.layout) : null;
-                probe.result(token, eta, 'no-eta', eta && readTurn(frame, dims[0], dims[1], templates, eta.layout), limit, capturedAt);
+                const metric = probe.wantsLimit() && eta && / (m|km)$/.test(eta.distance) && hasWazeDock(frame, dims[0], dims[1]);
+                const limit = metric ? readSpeedLimit(frame, dims[0], dims[1], templates, eta.layout) : null;
+                const turn = eta && probe.wantsNavigation() ? readTurn(frame, dims[0], dims[1], templates, eta.layout) : null;
+                probe.result(token, eta, 'no-eta', turn, limit, capturedAt);
             } catch (err) {
                 console.warn('ETA read: ' + err.message);
                 captureDetail = err.code === 'ENOENT' ? 'no-frame' : 'unreadable-frame';
                 probe.result(token, null, 'capture-failed');
-            } finally { clearFrame(); capturing = false; }
+            } finally { clearFrame(); capturing = false; scheduleCapture(); }
         });
     }
-    setInterval(capture, INTERVAL);
     // Only fixed operations. No file paths or arbitrary commands from clients.
     const server = net.createServer((socket) => {
         let input = '';
@@ -185,6 +203,7 @@ function run() {
             else if (command === 'limit') probe.start('limit');
             else if (command !== 'get') { socket.destroy(); return; }
             socket.end(JSON.stringify(Object.assign(probe.snapshot(), { gateStatus, captureDetail })) + '\n');
+            scheduleCapture();
         });
     });
     try { fs.unlinkSync(SOCKET); } catch (error) { if (error.code !== 'ENOENT') throw error; }

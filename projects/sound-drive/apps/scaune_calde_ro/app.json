@@ -2,7 +2,7 @@
   "id": "scaune_calde_ro",
   "title": "Seat Comfort",
   "description": "Automatic front-seat heating on startup below the selected outside temperature.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "language": "en",
   "license": "MIT",
   "vendor": "custom",
