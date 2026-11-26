@@ -12,7 +12,7 @@ const { menuLanguage } = require('./kit/menu-language');
 const SOCKET = '/run/waze-eta-reader/control.sock';
 const TEXTURE_SCALE = 3, GLASS_SCALE = 4;
 const CARD_FILL = [52, 52, 52, 232];
-const ETA_CARD = { margin: 9, top: 9, faceHeight: 34, radius: 11, shadowX: 2, shadowY: -2, spread: 7, shadowAlpha: 62 };
+const ETA_CARD = { margin: 7, top: 9, faceHeight: 34, radius: 11, shadowX: 1, shadowY: -1, spread: 6, shadowAlpha: 62 };
 const TURN_CARD = { margin: 12, top: 11, faceHeight: 38, radius: 13, shadowX: 3, shadowY: -2, spread: 9, shadowAlpha: 52 };
 const SIZE = [70, 80, 90, 100, 110, 120, 130];
 const HUD = { x: 0, y: 0, w: 800, h: 480 };
@@ -219,8 +219,9 @@ function glassFrame(part, value, previous) {
     const width = Math.max(card + 2 * margin, previous || 0);
     const cv = new ScaledCanvas(width, height, GLASS_SCALE).clear();
     drawClusterCard(cv, (width - card) / 2, card, height, ETA_CARD);
-    cv.text(text, width / 2, height / 2 + size * 0.34 + 0.7, size, [12, 12, 12, 143], style);
-    cv.text(text, width / 2, height / 2 + size * 0.34, size, '#ffffff', style);
+    const baseline = ETA_CARD.top + ETA_CARD.faceHeight / 2 + size * 0.39;
+    cv.text(text, width / 2, baseline + 0.7, size, [12, 12, 12, 143], style);
+    cv.text(text, width / 2, baseline, size, '#ffffff', style);
     const pixels = cv.canvas.d;
     // A width change repaints the union to erase old edges. Otherwise only
     // the text band changes, so the top and bottom need no upload.

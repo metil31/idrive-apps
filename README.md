@@ -15,7 +15,7 @@ The menus default to English. Select **Language → Romana** for Romanian withou
 | App | Current version | Function |
 | --- | --- | --- |
 | **Metil's HUD Apps** | 0.2.3 | Turn signals, native CarPlay ETA, and now-playing information |
-| **Waze ETA iOS** | 0.3.8 | Waze ETA, turns, roundabout exit number, lane guidance and forks |
+| **Waze ETA iOS** | 0.3.9 | Waze ETA, turns, roundabout exit number, lane guidance and forks |
 | **Speed Limit Romania** | 1.3.2 | Offline speed limits, cameras and priority signs, with an optional Waze limit |
 | **Seat Comfort** | 0.1.2 | Automatic front-seat heating at a cold start |
 | **Waze CarPlay Reader** | 0.3.1 | Shared capture tool for Waze ETA iOS and the optional Speed Limit Romania source |

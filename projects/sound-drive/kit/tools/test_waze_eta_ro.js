@@ -371,6 +371,17 @@ async function testHud() {
         assert.ok(shadow[0][3] > shadow[1][3] && shadow[1][3] > shadow[2][3], 'the shadow fades above the card');
         const sides = edges(ref, ih / 2);
         assert.ok(iw - 1 - sides.right < sides.left, 'the shadow extends farther past the right edge');
+        if (ref === 2) {
+            const inkRows = [];
+            for (let y = 0; y < ih; y++) {
+                for (let col = 0; col < iw; col++) {
+                    if (frame[(y * iw + col) * 4] === 255) { inkRows.push(y / scale); break; }
+                }
+            }
+            const inkCenter = (inkRows[0] + inkRows[inkRows.length - 1]) / 2;
+            assert.ok(Math.abs(inkCenter - (top + 17)) <= 1, 'ETA text is centered on the solid face');
+            assert.strictEqual(pixel(x, (top - 7) * scale)[3], 0, 'the ETA shadow sits closer to the face');
+        }
         if (ref === 3) {
             assert.ok(pixel(x, (top - 7) * scale)[3] > 0, 'the maneuver casts a more diffuse shadow');
             const arrowRows = [];
