@@ -11,6 +11,16 @@ def direction(tag):
     return {'forward': 1, 'backward': -1}.get(tag)
 
 
+def priority_kind(tags):
+    kinds = {'give_way': 'give_way', 'stop': 'stop', 'ro:b1': 'give_way', 'ro:b01': 'give_way',
+             'ro:b2': 'stop', 'ro:b02': 'stop'}
+    highway = tags.get('highway')
+    sign = kinds.get(tags.get('traffic_sign', '').lower().strip())
+    if highway in ('give_way', 'stop'):
+        return highway if not sign or sign == highway else None
+    return sign
+
+
 def select_signs(nodes, ways):
     links = {}
     for way, refs, tags in ways:
@@ -18,27 +28,44 @@ def select_signs(nodes, ways):
         if cls is None:
             continue
         one, _ = oneway_of(tags, cls)
-        for node in refs:
+        for index, node in enumerate(refs):
             if node in nodes:
-                links.setdefault(node, {})[way] = (one, tags.get('junction'))
+                edge = 1 if index == len(refs) - 1 else -1 if index == 0 else 0
+                links.setdefault(node, {})[way] = (one, tags.get('junction'), tags.get('name') or tags.get('ref'), edge)
     for node, (lat, lon, tags) in nodes.items():
         candidates = links.get(node, {})
-        # A marker shared by several roads gives no unambiguous approach.
-        if len(candidates) != 1:
+        if len(candidates) not in (1, 2):
             continue
-        (way, (one, junction)), = candidates.items()
-        if junction in ('roundabout', 'circular') or 'except' in tags or any(key.endswith(':conditional') for key in tags):
+        if 'except' in tags or any(key.endswith(':conditional') for key in tags):
             continue
         raw = tags.get('direction')
-        specific = tags.get(tags['highway'] + ':direction')
-        if raw and specific and raw != specific:
+        kind = priority_kind(tags)
+        if not kind:
             continue
-        raw = specific or raw
+        directions = {v for v in (raw, tags.get(kind + ':direction'), tags.get('traffic_sign:direction')) if v}
+        if len(directions) > 1:
+            continue
+        raw = next(iter(directions), None)
+        if tags.get('highway') not in ('give_way', 'stop') and not raw:
+            continue
+        if len(candidates) == 2:
+            roads = list(candidates.items())
+            street = roads[0][1][2]
+            if not street or any(junction or name != street or not one or not edge for _, (one, junction, name, edge) in roads):
+                continue
+            approaches = [(wid, info) for wid, info in roads if info[0] == info[3]]
+            if len(approaches) != 1:
+                continue
+            way, (one, junction, _, _) = approaches[0]
+        else:
+            (way, (one, junction, _, _)), = candidates.items()
+        if junction in ('roundabout', 'circular'):
+            continue
         signed = direction(raw) if raw else one
         if not signed or (one and signed != one):
             continue
         x, y = merc(lat, lon)
-        yield [way, 1 if one else signed, 'stop' if tags['highway'] == 'stop' else 'yield',
+        yield [way, 1 if one else signed, 'stop' if kind == 'stop' else 'yield',
                round(x, 1), round(y, 1)]
 
 
@@ -51,14 +78,14 @@ def extract(pbf):
     if osmium is not None:
         class Extract(osmium.SimpleHandler):
             def node(self, n):
-                if n.tags.get('highway') in ('give_way', 'stop'):
+                if priority_kind(n.tags):
                     nodes[n.id] = n.location.lat, n.location.lon, dict(n.tags)
 
             def way(self, w):
                 if w.tags.get('highway') not in ROAD:
                     return
-                refs = [n.ref for n in w.nodes if n.ref in nodes]
-                if refs:
+                refs = [n.ref for n in w.nodes]
+                if any(node in nodes for node in refs):
                     ways.append((w.id, refs, dict(w.tags)))
 
         Extract().apply_file(pbf)
@@ -69,13 +96,12 @@ def extract(pbf):
             for item in _block(raw, {'nodes', 'ways'}):
                 if item[0] == 'n':
                     _, node, lat, lon, tags = item
-                    if tags and tags.get('highway') in ('give_way', 'stop'):
+                    if tags and priority_kind(tags):
                         nodes[node] = lat, lon, tags
                 elif item[0] == 'w':
                     _, way, refs, tags = item
                     if tags.get('highway') in ROAD:
-                        refs = [node for node in refs if node in nodes]
-                        if refs:
+                        if any(node in nodes for node in refs):
                             ways.append((way, refs, tags))
     return nodes, list(select_signs(nodes, ways))
 
@@ -124,7 +150,7 @@ def main():
     filtered = write_signs(args.output, signs, args.date, args.speed_pack)
     for kind, tag in [('yield', 'give_way'), ('stop', 'stop')]:
         print(kind, sum(s[2] == kind for s in filtered),
-              'eligible of', sum(n[2]['highway'] == tag for n in nodes.values()), 'mapped')
+              'eligible of', sum(priority_kind(n[2]) == tag for n in nodes.values()), 'mapped')
 
 
 if __name__ == '__main__':

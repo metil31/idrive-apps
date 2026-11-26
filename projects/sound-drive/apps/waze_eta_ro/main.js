@@ -16,6 +16,7 @@ const STATUS = {
     waiting: 'Așteaptă următoarea captură', 'no-eta': 'Bara ETA nu a fost citită',
     confirming: 'Confirmă valorile pe al doilea cadru', live: 'ETA citit din Waze',
     'capture-failed': 'Captură indisponibilă', 'capture-format': 'Format de captură necunoscut',
+    'no-screen-event': 'iDrive nu a semnalat deschiderea CarPlay. Repornește testul.',
     unavailable: 'Serviciul de captură nu răspunde',
 };
 
@@ -84,7 +85,10 @@ function background({ app, settings, signals, log }) {
         const tag = ++latest;
         pending = true;
         let next;
-        try { next = await request(command); } catch (error) { next = { code: 'unavailable' }; }
+        try { next = await request(command); } catch (error) {
+            next = { code: 'unavailable', captureDetail: error.code === 'EACCES' ? 'Acces refuzat' :
+                error.code === 'ENOENT' ? 'Cititorul nu este pornit' : '' };
+        }
         if (stopped || tag !== latest) return;
         pending = false;
         data = next;
@@ -133,7 +137,7 @@ function start({ app, ui, settings, background }) {
     function render() {
         if (!ui.isVisible('MAIN')) return;
         const data = background ? background.snapshot() : { code: 'unavailable' };
-        const status = data.active && data.gateStatus === 'unavailable' ? 'Monitorizare CarPlay indisponibilă' : STATUS[data.code];
+        const status = (STATUS[data.code] || STATUS.unavailable) + (data.captureDetail ? ' · ' + data.captureDetail : '');
         show('status', status, (v) => ui.text('WE_STATUS', v));
         const eta = data.eta, line = eta ? (data.remembered ? 'Memorat · ' : '') + etaLabel(eta) : 'Sosire · —';
         show('eta', line, (v) => ui.text('WE_ETA', v));

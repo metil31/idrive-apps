@@ -126,3 +126,22 @@ try {
     assert.strictEqual(clients.length, 1, 'parked and stale route data cannot reopen the HUD');
 } finally { service.stop(); }
 console.log('HUD România: CarPlay ETA, semnalizări, fundal și renderer verificate');
+
+const { wireMenu } = require('../../apps/hud_romania/menu');
+const actions = {}, shown = {};
+const config = { indicators: true, eta: true, indicatorX: 20, indicatorY: 286, indicatorGap: 362, position: 'low', brightness: 'normal' };
+const options = { get: key => config[key], set(key, value) { config[key] = value; this.render(); }, onChange(fn) { this.render = fn; } };
+const menuApp = new EventEmitter();
+const ui = { isVisible: () => true, onVisible() {}, onClick(id, fn) { actions[id] = fn; } };
+for (const method of ['checked', 'text', 'enabled', 'selected']) ui[method] = (id, value) => { shown[id] = value; };
+try {
+    wireMenu({ app: menuApp, ui, settings: options });
+    assert.ok(shown.HR_POSITION.includes('X 20'));
+    actions.HR_RIGHT(); actions.HR_RIGHT(); actions.HR_UP(); actions.HR_NARROW();
+    assert.deepStrictEqual([config.indicatorX, config.indicatorY, config.indicatorGap], [40, 276, 352]);
+    actions.HR_RESET();
+    assert.deepStrictEqual([config.indicatorX, config.indicatorY, config.indicatorGap], [0, 286, 362]);
+    actions.HR_IND(); actions.HR_RIGHT();
+    assert.strictEqual(config.indicatorX, 0);
+    assert.strictEqual(shown.HR_RIGHT, false);
+} finally { menuApp.emit('shutdown'); }

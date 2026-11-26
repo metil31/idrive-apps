@@ -38,6 +38,8 @@ Pentru proveniența datelor, sursele independente și metoda de verificare, vezi
 
 Versiunea 1.1.7 aplică limita documentată de 30 km/h pe două segmente din Strada Rondă, Sectorul 2. [Informarea ADP Sector 2](https://adp2.ro/wp-content/uploads/Informare-sensuri-unice-cvartal-4.pdf)
 
+În 1.1.8, importul național acceptă și indicatoare STOP și Cedează marcate separat, cu sens explicit, precum și puncte fix la despărțirea unui drum cu sens unic în două segmente, când intrarea este unică și numele drumului se potrivește. Pachetul conține 19.739 de înregistrări de prioritate.
+
 ## Scaune calde
 
 Aplicație separată pentru iDrive 7, cu setările direct pe prima pagină. Selectează scaunele din față, treapta și pragul exterior. Valori inițiale: 8 °C, treapta 2 și ambele scaune. Pornirea automată se activează din meniu.
@@ -48,7 +50,7 @@ Versiune experimentală pentru mașini cu traseu de încălzire frontală prin B
 
 ## Waze ETA
 
-Aplicație separată, experimentală. Cu mașina staționată, deschide **Waze ETA**, pornește testul și revino în Waze cu un traseu activ. Cititorul primește captura ecranului central numai când iDrive anunță că interfața CarPlay este în prim-plan. Recunoașterea are nevoie de două capturi consecutive pentru a confirma o valoare nouă. Versiunea de test a fost verificată pe capturi furnizate de utilizator, cu interfața Waze în engleză.
+Aplicație separată, experimentală. Cu mașina staționată, deschide **Waze ETA**, pornește testul și revino în Waze cu un traseu activ. La pornire ai 45 de secunde pentru probă dacă starea ecranului CarPlay încă nu a fost primită. Apoi capturile continuă numai când iDrive anunță că interfața CarPlay este în prim-plan. Recunoașterea are nevoie de două capturi consecutive pentru a confirma o valoare nouă. Versiunea de test a fost verificată pe capturi furnizate de utilizator, cu interfața Waze în engleză.
 
 Aplicația afișează starea și valorile în meniu. Dacă activezi **Arată ETA pe HUD**, apare un card reglabil cu ora sosirii, timpul și distanța rămase. La schimbarea ecranului, ultima valoare este marcată **MEMORAT** și expiră după două minute de la ultima citire validă. Testul se oprește după 30 de minute sau imediat de la comanda **Oprește testul**. Serviciul folosește imagini temporare în memorie. Cardul nu ocupă zona hărții din ceasuri.
 
@@ -59,7 +61,7 @@ Citirea pe un iDrive real și vizibilitatea pe HUD trebuie confirmate pe mașin�
 Fiecare aplicație folosește propriul kit de construire. Versiunile sunt actualizate aici prin importarea și verificarea surselor originale.
 
 - **Sound Drive 1.0.9** și **Sound Drive Audio**, cod MIT. [Upstream Nico1003/sound-drive](https://github.com/Nico1003/sound-drive/tree/b7901d9abc2f69464def12278c81bb8023379224) · [Versiunea română la b42cd42](https://github.com/metil31/sound-drive-ro/tree/b42cd42e7407222bb2c723b74c0e4df31a24f87f) · [Licență](projects/sound-drive/LICENSE).
-- **Speed Limit România 1.1.7**, cod GPL-3.0-or-later, cu notificările MIT ale componentelor preluate. [Upstream hexlay/idrive7-custom-apps](https://github.com/hexlay/idrive7-custom-apps) · [Baza versiunii române la 77b05b0](https://github.com/metil31/idrive7-speed-limit-romania/tree/77b05b0d6bf6aebda431770fd37e3dd2b7ecca1d) · [GPL](projects/speed-limit/LICENSE) · [MIT](projects/speed-limit/LICENSE.MIT) · [Licența graficii indicatoarelor](projects/speed-limit/apps/speed_limit/NOTICE).
+- **Speed Limit România 1.1.8**, cod GPL-3.0-or-later, cu notificările MIT ale componentelor preluate. [Upstream hexlay/idrive7-custom-apps](https://github.com/hexlay/idrive7-custom-apps) · [Baza versiunii române la 77b05b0](https://github.com/metil31/idrive7-speed-limit-romania/tree/77b05b0d6bf6aebda431770fd37e3dd2b7ecca1d) · [GPL](projects/speed-limit/LICENSE) · [MIT](projects/speed-limit/LICENSE.MIT) · [Licența graficii indicatoarelor](projects/speed-limit/apps/speed_limit/NOTICE).
 
 Datele din harta offline sunt © [contributorii OpenStreetMap](https://www.openstreetmap.org/copyright), licența [ODbL](https://opendatacommons.org/licenses/odbl/1-0/). Baza de date completă este disponibilă ca [romania.pack](projects/speed-limit/apps/speed_limit/romania.pack), cu o [notificare inclusă în pachet](projects/speed-limit/apps/speed_limit/NOTICE). Pachetul folosește [extrasul România de la Geofabrik](https://download.geofabrik.de/europe/romania.html). Codul de generare a hărții este în [pack_sli.py](projects/speed-limit/kit/tools/pack_sli.py).
 

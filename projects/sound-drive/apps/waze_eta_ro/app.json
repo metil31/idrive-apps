@@ -2,14 +2,14 @@
   "id": "waze_eta_ro",
   "title": "Waze ETA",
   "description": "Test de citire a orei sosirii din Waze, cu afișare opțională pe HUD.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "language": "ro",
   "license": "MIT",
   "vendor": "custom",
   "loggingId": "WETA",
   "mguHmi": ["ID7"],
   "autostart": true,
-  "requires": { "waze-eta-reader": "0.1.0", "cluster-render": "0.3.7" },
+  "requires": { "waze-eta-reader": "0.1.1", "cluster-render": "0.3.7" },
   "signals": {
     "de.bmw.infrastructure.VehicleCondition": { "_optional": "Afișarea pe HUD în READY", "VehicleCondition": "s" }
   },

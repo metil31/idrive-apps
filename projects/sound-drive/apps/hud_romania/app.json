@@ -2,7 +2,7 @@
   "id": "hud_romania",
   "title": "HUD România",
   "description": "Semnalizări și sosirea estimată din CarPlay pe HUD-ul BMW iDrive 7.",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "language": "ro",
   "license": "MIT",
   "vendor": "custom",
@@ -39,22 +39,42 @@
   },
   "screens": [{
     "name": "MAIN",
-    "kind": "canvas",
+    "kind": "menu",
     "title": "HUD România",
-    "buttons": [["BTN_SETTINGS", "Setări"]]
+    "settings": true,
+    "items": [
+      ["header", "HR_IND_HEAD", "Semnalizări pe HUD"],
+      ["checkbox", "HR_IND", "Afișează semnalizările și avariile"],
+      ["text", "HR_IND_STATUS", "Semnalizări inactive"],
+      ["text", "HR_POSITION", "Poziție"],
+      ["button", "HR_LEFT", "Mută la stânga"],
+      ["button", "HR_RIGHT", "Mută la dreapta"],
+      ["button", "HR_UP", "Mută în sus"],
+      ["button", "HR_DOWN", "Mută în jos"],
+      ["button", "HR_NARROW", "Apropie săgețile"],
+      ["button", "HR_WIDEN", "Depărtează săgețile"],
+      ["button", "HR_RESET", "Poziție și distanță implicite"],
+      ["header", "HR_ETA_HEAD", "Sosire din CarPlay"],
+      ["checkbox", "HR_ETA", "Afișează ora estimată a sosirii"],
+      ["text", "HR_ETA_STATUS", "Așteaptă date CarPlay"],
+      ["text", "HR_ETA_DETAIL", "Stare traseu CarPlay"],
+      ["dropdown", "HR_ETA_POSITION", "Poziție ETA", ["Sus", "Mijloc", "Jos"]],
+      ["dropdown", "HR_BRIGHTNESS", "Luminozitate", ["Redusă", "Normală"]],
+      ["text", "HR_RENDERER", "Se conectează la HUD"]
+    ]
   }],
   "settings": [
-    { "key": "indicators", "label": "Semnalizări și avarii", "type": "bool", "default": true },
+    { "key": "indicators", "label": "Semnalizări și avarii", "type": "bool", "default": true, "hidden": true },
     { "key": "indicatorX", "label": "Săgeți stânga / dreapta", "type": "number", "unit": "px", "default": 0,
-      "steps": [-100, -80, -60, -40, -20, 0, 20, 40, 60, 80, 100] },
+      "hidden": true },
     { "key": "indicatorY", "label": "Săgeți sus / jos", "type": "number", "unit": "px", "default": 286,
-      "steps": [126, 146, 166, 186, 206, 226, 246, 266, 286, 306, 326, 346, 366] },
+      "hidden": true },
     { "key": "indicatorGap", "label": "Distanță între săgeți", "type": "number", "unit": "px", "default": 362,
-      "steps": [122, 162, 202, 242, 282, 322, 362, 402, 442, 482] },
-    { "key": "eta", "label": "Estimare sosire CarPlay", "type": "bool", "default": true },
+      "hidden": true },
+    { "key": "eta", "label": "Estimare sosire CarPlay", "type": "bool", "default": true, "hidden": true },
     { "key": "position", "label": "Poziție ETA pe HUD", "type": "choice", "default": "low",
-      "options": [["high", "Sus"], ["middle", "Mijloc"], ["low", "Jos"]] },
+      "options": [["high", "Sus"], ["middle", "Mijloc"], ["low", "Jos"]], "hidden": true },
     { "key": "brightness", "label": "Luminozitate", "type": "choice", "default": "normal",
-      "options": [["dim", "Redusă"], ["normal", "Normală"]] }
+      "options": [["dim", "Redusă"], ["normal", "Normală"]], "hidden": true }
   ]
 }

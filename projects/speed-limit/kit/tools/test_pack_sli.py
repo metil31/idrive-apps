@@ -8,6 +8,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import pack_sli as P  # noqa: E402
+from pack_junctions import select_signs  # noqa: E402
 
 fails = 0
 
@@ -61,6 +62,17 @@ check(P.limits({'maxspeed': '90', 'maxspeed:forward:conditional': '60 @ wet'}),
       (0, P.SRC_VAR, 90, P.SRC_NUM), 'directional conditions leave the opposite limit intact')
 check(P.limits({'maxspeed': '120', 'maxspeed:variable': 'yes'}),
       (0, P.SRC_VAR, 0, P.SRC_VAR), 'the ceiling printed for an electronic sign is not its live value')
+
+signs = {2: (44.41, 26.07, {'traffic_sign': 'RO:B2', 'traffic_sign:direction': 'forward'})}
+oneway = {'highway': 'residential', 'name': 'Strada Test', 'oneway': 'yes'}
+two_parts = [(21, [1, 2], oneway), (22, [2, 3], oneway)]
+check([(p[0], p[1], p[2]) for p in select_signs(signs, two_parts)], [(21, 1, 'stop')],
+      'standalone STOP tag at a split belongs to the sole incoming one-way segment')
+check(list(select_signs(signs, two_parts + [(23, [4, 2], oneway)])), [], 'a third way makes the approach ambiguous')
+check(list(select_signs(signs, [two_parts[0], (22, [2, 3], dict(oneway, name='Strada Paralelă'))])), [],
+      'two differently named streets do not form a single approach')
+check(list(select_signs({2: (44.41, 26.07, {'traffic_sign': 'RO:B1'})}, two_parts)), [],
+      'a traffic-sign-only record requires an explicit direction')
 
 # A sourced correction only applies to the reviewed way and its former base limit.
 local = [{'street': 'Calea Victoriei', 'source': 'https://example.org/notice',

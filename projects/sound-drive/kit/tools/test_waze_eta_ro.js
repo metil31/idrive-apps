@@ -39,7 +39,7 @@ assert.strictEqual(readEta(Buffer.alloc(12), 1280, 480, templates), null);
 let time = 0;
 const reader = state(() => time);
 reader.start();
-assert.strictEqual(reader.captureToken(), null);
+assert.notStrictEqual(reader.captureToken(), null);
 reader.setFront(true);
 let token = reader.captureToken();
 reader.result(token, synthetic);
@@ -65,6 +65,20 @@ time += 31 * 60 * 1000;
 assert.strictEqual(reader.snapshot().code, 'ended');
 reader.stop();
 assert.strictEqual(reader.snapshot().code, 'idle');
+
+const missingGate = state(() => time);
+missingGate.start();
+const initial = missingGate.captureToken();
+assert.notStrictEqual(initial, null);
+missingGate.result(initial, synthetic);
+missingGate.result(initial, synthetic);
+assert.strictEqual(missingGate.snapshot().code, 'live');
+time += 45000;
+assert.strictEqual(missingGate.captureToken(), null);
+assert.strictEqual(missingGate.snapshot().code, 'no-screen-event');
+assert.strictEqual(missingGate.snapshot().remembered, true);
+missingGate.setFront(true);
+assert.notStrictEqual(missingGate.captureToken(), initial);
 
 const external = process.argv.slice(2);
 if (external.length) {
