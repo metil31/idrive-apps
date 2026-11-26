@@ -364,15 +364,19 @@ async function testHud() {
         const { iw, ih } = targets[ref - 1], scale = ih / 48, frame = frames.get(ref);
         const pixel = (x, y) => Array.from(frame.subarray((y * iw + x) * 4, (y * iw + x) * 4 + 4));
         const x = iw / 2;
-        assert.deepStrictEqual(pixel(x, 8 * scale), [52, 52, 52, 224], 'the card is neutral grey and nearly solid');
-        const shadow = [42, 44, 46, 47].map(y => pixel(x, y * scale));
+        const top = ref === 2 ? 4 : 8;
+        assert.deepStrictEqual(pixel(x, (top + 1) * scale), [52, 52, 52, 232], 'the card is neutral grey and nearly solid');
+        const shadow = [top - 2, top - 3, 47].map(y => pixel(x, y * scale));
         assert.ok(shadow.every(([r, g, b]) => r === 0 && g === 0 && b === 0), 'the card casts a neutral shadow');
-        assert.ok(shadow[0][3] > shadow[1][3] && shadow[1][3] > shadow[2][3] && shadow[3][3] === 0, 'the shadow fades below the card');
+        assert.ok(shadow[0][3] > shadow[1][3] && shadow[1][3] > shadow[2][3], 'the shadow fades above the card');
+        const sides = edges(ref, ih / 2);
+        assert.ok(iw - 1 - sides.right < sides.left, 'the shadow extends farther past the right edge');
+        if (ref === 3) assert.ok(pixel(x, (top - 5) * scale)[3] > 0, 'the maneuver casts a more diffuse shadow');
         assert.ok(frame.some((value, i) => i % 4 === 0 && value === 255 && frame[i + 3] === 255), 'the guidance stays opaque');
     }
     assert.ok(etaEdges.width < targets[1].iw - 40 && turnEdges.width < targets[2].iw - 40,
         'short labels leave no painted background in the unused side space');
-    const turnTop = edges(3, 4 * 3);
+    const turnTop = edges(3, 8 * 3);
     assert.ok(turnTop.left > turnEdges.left && turnTop.right < turnEdges.right,
         'the maneuver card is narrower at the top because its corners are rounded');
     const activePayload = payload;

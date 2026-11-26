@@ -11,8 +11,9 @@ const { menuLanguage } = require('./kit/menu-language');
 
 const SOCKET = '/run/waze-eta-reader/control.sock';
 const TEXTURE_SCALE = 3, GLASS_SCALE = 4;
-const CARD_MARGIN = 5;
-const CARD_FILL = [52, 52, 52, 224];
+const CARD_FILL = [52, 52, 52, 232];
+const ETA_CARD = { margin: 5, top: 4, radius: 11, shadowX: 2, shadowY: -1, spread: 3, shadowAlpha: 105 };
+const TURN_CARD = { margin: 8, top: 8, radius: 13, shadowX: 3, shadowY: -2, spread: 5, shadowAlpha: 85 };
 const SIZE = [70, 80, 90, 100, 110, 120, 130];
 const HUD = { x: 0, y: 0, w: 800, h: 480 };
 const PARTS = [
@@ -140,7 +141,7 @@ function drawOverlay(part, value) {
     const text = part.turn ? (value.demo ? 'Demo ' : '') + value.distance : (value.demo ? 'Demo  ' : '') + etaLabel(value);
     const style = { align: 'center', font: 'bold', literal: true };
     const cluster = part.target === 'map';
-    const padding = cluster ? 11 : 9, margin = cluster ? CARD_MARGIN : 1;
+    const padding = cluster ? 11 : 9, margin = cluster ? TURN_CARD.margin : 1;
     const iconWidth = 28, leading = part.turn && value.kind !== 'lanes' ? iconWidth + 8 : 0;
     const maxTextWidth = w - 2 * (padding + margin) - leading;
     const baseSize = 18;
@@ -151,7 +152,7 @@ function drawOverlay(part, value) {
     const left = (w - cardWidth) / 2, y = h / 2;
     const iconCenter = left + padding + iconWidth / 2;
     const textCenter = left + padding + leading + bodyWidth / 2;
-    if (cluster) drawClusterCard(cv, left, cardWidth, h, 13);
+    if (cluster) drawClusterCard(cv, left, cardWidth, h, TURN_CARD);
     else cv.roundRect(left, 1, cardWidth, h - 2, 7, [24, 27, 31, 207]);
     if (part.turn && value.kind.startsWith('fork-')) {
         drawFork(cv, iconCenter, y, value.kind === 'fork-left');
@@ -179,23 +180,27 @@ function roundedDistance(dx, dy) {
     return dx > 0 && dy > 0 ? Math.sqrt(dx * dx + dy * dy) : Math.max(dx, dy);
 }
 
-function drawClusterCard(cv, x, width, height, radius) {
-    const top = 4, faceHeight = height - 11, shadowOffset = 2, spread = 4;
+function drawClusterCard(cv, x, width, height, card) {
+    const { top, radius, shadowX, shadowY, spread, shadowAlpha } = card;
+    const faceHeight = height - 11;
     const canvas = cv.canvas, scale = canvas.h / height;
-    const first = Math.floor((x - spread) * scale), last = Math.ceil((x + width + spread) * scale);
-    for (let row = (top + shadowOffset - spread) * scale;
-        row < (top + faceHeight + shadowOffset + spread) * scale; row++) {
+    const first = Math.floor((x + shadowX - spread) * scale);
+    const last = Math.ceil((x + width + shadowX + spread) * scale);
+    for (let row = (top + shadowY - spread) * scale;
+        row < (top + faceHeight + shadowY + spread) * scale; row++) {
         const y = (row + 0.5) / scale - top - faceHeight / 2;
         const dy = Math.abs(y) - faceHeight / 2 + radius;
-        const shadowY = Math.abs(y - shadowOffset) - faceHeight / 2 + radius;
+        const sy = Math.abs(y - shadowY) - faceHeight / 2 + radius;
         for (let col = first; col < last; col++) {
-            const dx = Math.abs((col + 0.5) / scale - x - width / 2) - width / 2 + radius;
+            const vertexX = (col + 0.5) / scale - x - width / 2;
+            const dx = Math.abs(vertexX) - width / 2 + radius;
             const faceDistance = roundedDistance(dx, dy) - radius;
             if (faceDistance < 0) continue;
-            const shadowDistance = roundedDistance(dx, shadowY) - radius;
+            const sx = Math.abs(vertexX - shadowX) - width / 2 + radius;
+            const shadowDistance = roundedDistance(sx, sy) - radius;
             const t = Math.max(0, Math.min(1, 1 - shadowDistance / spread));
             const edge = Math.min(1, faceDistance * scale);
-            canvas.d[(row * canvas.w + col) * 4 + 3] = Math.round(105 * edge * t * t * (3 - 2 * t));
+            canvas.d[(row * canvas.w + col) * 4 + 3] = Math.round(shadowAlpha * edge * t * t * (3 - 2 * t));
         }
     }
     cv.roundRect(x, top, width, faceHeight, radius, CARD_FILL);
@@ -204,14 +209,14 @@ function drawClusterCard(cv, x, width, height, radius) {
 function glassFrame(part, value, previous) {
     const text = (value.demo ? 'Demo  ' : '') + etaLabel(value);
     const style = { align: 'center', font: 'bold', literal: true };
-    const padding = 13, margin = CARD_MARGIN, font = 18, height = part.h;
+    const padding = 13, margin = ETA_CARD.margin, font = 18, height = part.h;
     const measure = new ScaledCanvas(1, 1, GLASS_SCALE);
     const natural = measure.textWidth(text, font, style), room = part.w - 2 * (padding + margin);
     const size = Math.min(font, font * room / Math.max(1, natural));
     const card = Math.min(part.w - 2 * margin, Math.ceil(measure.textWidth(text, size, style)) + 2 * padding);
     const width = Math.max(card + 2 * margin, previous || 0);
     const cv = new ScaledCanvas(width, height, GLASS_SCALE).clear();
-    drawClusterCard(cv, (width - card) / 2, card, height, 11);
+    drawClusterCard(cv, (width - card) / 2, card, height, ETA_CARD);
     cv.text(text, width / 2, height / 2 + size * 0.34 + 0.7, size, [12, 12, 12, 143], style);
     cv.text(text, width / 2, height / 2 + size * 0.34, size, '#ffffff', style);
     const pixels = cv.canvas.d;
