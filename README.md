@@ -1,6 +1,6 @@
 # Aplicații iDrive 7 România
 
-O singură sursă MGU Store pentru **Sound Drive în română**, **Speed Limit România**, **HUD România**, **Media HUD România**, **Scaune calde** și testul **Waze ETA**. Sound Drive Audio apare ca dependență pentru Sound Drive. Aplicațiile se aleg și se instalează separat din aceeași listă.
+O singură sursă MGU Store pentru **Sound Drive în română**, **Speed Limit România**, **HUD România**, **Media HUD România**, **Scaune calde** și **Waze ETA**. Sound Drive Audio apare ca dependență pentru Sound Drive. Aplicațiile se aleg și se instalează separat din aceeași listă.
 
 În MGU Store, adaugă `metil31/idrive-apps` și selectează ramura `mgu-romania`. Pentru afișarea limitei pe HUD și în instrumentar, Speed Limit România folosește `cluster-render` din [robertnisipeanu/idrive-apps](https://github.com/robertnisipeanu/idrive-apps).
 
@@ -50,11 +50,9 @@ Versiune experimentală pentru mașini cu traseu de încălzire frontală prin B
 
 ## Waze ETA
 
-Aplicație separată, experimentală. Cu mașina staționată, deschide **Waze ETA**, pornește testul și revino în Waze cu un traseu activ. La pornire ai 45 de secunde pentru probă dacă starea ecranului CarPlay încă nu a fost primită. Apoi capturile continuă numai când iDrive anunță că interfața CarPlay este în prim-plan. Recunoașterea are nevoie de două capturi consecutive pentru a confirma o valoare nouă. Versiunea de test a fost verificată pe capturi furnizate de utilizator, cu interfața Waze în engleză.
+În 0.2.0, citirea pornește automat în starea READY când este activă cel puțin o opțiune de afișare. Lasă Waze în prim-plan pe ecranul central, cu un traseu activ. Ora sosirii, durata și distanța apar într-o pastilă pe HUD sau pe harta activă din bord, cu reglaje independente. După schimbarea ecranului, ultima estimare poate rămâne vizibilă până la două minute de la ultima captură validă.
 
-Aplicația afișează starea și valorile în meniu. Dacă activezi **Arată ETA pe HUD**, apare un card reglabil cu ora sosirii, timpul și distanța rămase. La schimbarea ecranului, ultima valoare este marcată **MEMORAT** și expiră după două minute de la ultima citire validă. Testul se oprește după 30 de minute sau imediat de la comanda **Oprește testul**. Serviciul folosește imagini temporare în memorie. Cardul nu ocupă zona hărții din ceasuri.
-
-Citirea pe un iDrive real și vizibilitatea pe HUD trebuie confirmate pe mașină. [Referință pentru captura locală](https://github.com/Impossible43/vlad-mgu-apps).
+Săgețile de viraj la stânga și la dreapta se activează separat pe HUD și pe hartă. Au propriile controale de poziție și mărime și afișează distanța până la manevră. Modul este experimental, bazat pe capturi Waze în engleză. Un viraj apare după două cadre cu aceeași direcție și dispare când panoul dispare, când se schimbă direcția sau când expiră informația.
 
 ## Surse și licențe
 

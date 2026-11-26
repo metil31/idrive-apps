@@ -6,6 +6,15 @@ const AREAS = {
     dashboard: [[300, 421, 665, 458]],
     fullscreen: [[102, 400, 282, 428], [102, 433, 278, 460]],
 };
+const TURNS = {
+    dashboard: [[899, 34, 954, 94], [956, 40, 1135, 87]],
+    fullscreen: [[108, 24, 164, 79], [167, 30, 326, 76]],
+};
+const LEFT = ['001000000000', '011000000000', '111111100000', '111111111000',
+    '011000011100', '001000001100', '000000000110', '000000000010', '000000000011',
+    '000000000011', '000000000011', '000000000011', '000000000011', '000000000011',
+    '000000000011', '000000000011'];
+const ARROWS = { left: LEFT.join(''), right: LEFT.map(row => [...row].reverse().join('')).join('') };
 
 function normalize(get, x0, y0, x1, y1) {
     const pixels = [];
@@ -168,4 +177,26 @@ function readEta(frame, width, height, templates) {
     return reads[0] || null;
 }
 
-module.exports = { model, readEta };
+function readTurn(frame, width, height, templates, layout) {
+    const areas = TURNS[layout];
+    if (!areas || frame.length !== width * height * 4) return null;
+    for (const threshold of [187, 208, 166, 227]) {
+        const arrow = line(frame, width, height, areas[0], threshold);
+        if (arrow.length !== 1 || arrow[0].height < height * 0.055 || arrow[0].aspect < 0.65 || arrow[0].aspect > 1.1) continue;
+        const ranks = Object.keys(ARROWS).map(kind => ({ kind, cost: arrow[0].pixels.reduce(
+            (sum, p, i) => sum + Math.abs(p - Number(ARROWS[kind][i])), 0) / (WIDTH * HEIGHT) })).sort((a, b) => a.cost - b.cost);
+        if (ranks[0].cost > 0.15 || ranks[1].cost - ranks[0].cost < 0.13) continue;
+        const glyphs = line(frame, width, height, areas[1], threshold);
+        if (!glyphs.length) continue;
+        const cap = Math.max(...glyphs.map(g => g.height));
+        for (const unit of ['km', 'mi', 'm']) for (const pattern of DISTANCES) {
+            const result = match(glyphs, pattern + unit, templates, cap);
+            if (!result || result.cost > 0.21) continue;
+            const value = result.text.slice(0, -unit.length);
+            if (Number(value.replace(',', '.')) > 0) return { kind: ranks[0].kind, distance: value + ' ' + unit };
+        }
+    }
+    return null;
+}
+
+module.exports = { model, readEta, readTurn };
