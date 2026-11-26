@@ -12,15 +12,15 @@ const { menuLanguage } = require('./kit/menu-language');
 const SOCKET = '/run/waze-eta-reader/control.sock';
 const TEXTURE_SCALE = 3, GLASS_SCALE = 4;
 const CARD_FILL = [52, 52, 52, 232];
-const ETA_CARD = { margin: 5, top: 4, radius: 11, shadowX: 2, shadowY: -1, spread: 3, shadowAlpha: 105 };
-const TURN_CARD = { margin: 8, top: 8, radius: 13, shadowX: 3, shadowY: -2, spread: 5, shadowAlpha: 85 };
+const ETA_CARD = { margin: 9, top: 9, faceHeight: 34, radius: 11, shadowX: 2, shadowY: -2, spread: 7, shadowAlpha: 62 };
+const TURN_CARD = { margin: 12, top: 11, faceHeight: 38, radius: 13, shadowX: 3, shadowY: -2, spread: 9, shadowAlpha: 52 };
 const SIZE = [70, 80, 90, 100, 110, 120, 130];
 const HUD = { x: 0, y: 0, w: 800, h: 480 };
 const PARTS = [
     { row: 'WE', enabled: 'hud', keys: ['x', 'y', 'size'], base: [220, 270], target: 'hud', w: 230, h: 46 },
     { row: 'WE_CL', enabled: 'cluster', keys: ['clusterX', 'clusterY', 'clusterSize'], base: [544, 425], target: 'map', w: 270, h: 48 },
     { row: 'WE_TH', enabled: 'turnHud', keys: ['turnHudX', 'turnHudY', 'turnHudSize'], base: [415, 185], target: 'hud', w: 118, h: 44, turn: true },
-    { row: 'WE_TC', enabled: 'turnCluster', keys: ['turnClusterX', 'turnClusterY', 'turnClusterSize'], base: [544, 120], target: 'map', w: 138, h: 48, turn: true },
+    { row: 'WE_TC', enabled: 'turnCluster', keys: ['turnClusterX', 'turnClusterY', 'turnClusterSize'], base: [544, 120], target: 'map', w: 138, h: 56, turn: true },
 ];
 const MOVES = { LEFT: [0, -10], RIGHT: [0, 10], UP: [1, -10], DOWN: [1, 10] };
 const STATUS = {
@@ -141,15 +141,15 @@ function drawOverlay(part, value) {
     const text = part.turn ? (value.demo ? 'Demo ' : '') + value.distance : (value.demo ? 'Demo  ' : '') + etaLabel(value);
     const style = { align: 'center', font: 'bold', literal: true };
     const cluster = part.target === 'map';
-    const padding = cluster ? 11 : 9, margin = cluster ? TURN_CARD.margin : 1;
-    const iconWidth = 28, leading = part.turn && value.kind !== 'lanes' ? iconWidth + 8 : 0;
+    const padding = cluster ? 14 : 9, margin = cluster ? TURN_CARD.margin : 1;
+    const iconWidth = 28, leading = part.turn && value.kind !== 'lanes' ? iconWidth + (cluster ? 5 : 8) : 0;
     const maxTextWidth = w - 2 * (padding + margin) - leading;
     const baseSize = 18;
     const size = Math.min(baseSize, baseSize * maxTextWidth / Math.max(1, cv.textWidth(text, baseSize, style)));
     const bodyWidth = Math.min(maxTextWidth, Math.max(lanes ? lanes.length * 10 : 0, Math.ceil(cv.textWidth(text, size, style))));
     const cardWidth = 2 * padding + leading + bodyWidth;
     // Keep the layer and its anchor stable as the numbers change.
-    const left = (w - cardWidth) / 2, y = h / 2;
+    const left = (w - cardWidth) / 2, y = cluster ? TURN_CARD.top + TURN_CARD.faceHeight / 2 : h / 2;
     const iconCenter = left + padding + iconWidth / 2;
     const textCenter = left + padding + leading + bodyWidth / 2;
     if (cluster) drawClusterCard(cv, left, cardWidth, h, TURN_CARD);
@@ -163,10 +163,13 @@ function drawOverlay(part, value) {
         cv.polyline([[x - 10, y + 6], [x - 10, y + 15]], 4, '#ffffff');
         cv.text(String(value.exit), x, y + 5, 15, '#ffffff', { align: 'center', font: 'bold', literal: true });
     } else if (part.turn && value.kind !== 'lanes') {
-        const x = n => iconCenter + (value.kind === 'right' ? n - 12 : 12 - n);
-        const top = y - 13;
-        cv.polyline([[x(0), top + 24], [x(0), top + 15], [x(3), top + 9], [x(9), top + 5], [x(23), top + 5]], 4, '#ffffff');
-        cv.polyline([[x(17), top], [x(23), top + 5], [x(17), top + 10]], 4, '#ffffff');
+        const scale = cluster ? 0.85 : 1;
+        const point = (x, dy) => [
+            iconCenter + (value.kind === 'right' ? x - 12 : 12 - x) * scale,
+            y + (dy - (cluster ? 12 : 13)) * scale,
+        ];
+        cv.polyline([point(0, 24), point(0, 15), point(3, 9), point(9, 5), point(23, 5)], 4, '#ffffff');
+        cv.polyline([point(17, 0), point(23, 5), point(17, 10)], 4, '#ffffff');
     }
     cv.text(text, textCenter, lanes ? y - 2 : y + size * 0.34, size, '#ffffff', style);
     if (lanes) drawLanes(cv, lanes, textCenter, y + 6, bodyWidth);
@@ -181,8 +184,7 @@ function roundedDistance(dx, dy) {
 }
 
 function drawClusterCard(cv, x, width, height, card) {
-    const { top, radius, shadowX, shadowY, spread, shadowAlpha } = card;
-    const faceHeight = height - 11;
+    const { top, faceHeight, radius, shadowX, shadowY, spread, shadowAlpha } = card;
     const canvas = cv.canvas, scale = canvas.h / height;
     const first = Math.floor((x + shadowX - spread) * scale);
     const last = Math.ceil((x + width + shadowX + spread) * scale);
