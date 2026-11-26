@@ -363,9 +363,13 @@ async function testHud() {
     const glass = frames.get(2);
     const pixel = (x, y) => Array.from(glass.subarray((y * targets[1].iw + x) * 4, (y * targets[1].iw + x) * 4 + 4));
     const glassTop = pixel(etaEdges.left + 24, 55), glassBottom = pixel(etaEdges.left + 24, 145);
-    assert.ok(glassTop[3] > 0 && glassTop[3] < 255 && glassBottom[3] < 255, 'glass is translucent');
-    assert.notDeepStrictEqual(glassTop, glassBottom, 'glass shade changes vertically');
-    assert.ok(glassTop[2] > glassTop[0], 'glass has a subtle blue tint');
+    assert.ok(glassTop[3] >= 182 && glassBottom[3] <= 196 && glassBottom[3] > glassTop[3], 'glass has controlled translucency');
+    for (const [r, g, b] of [glassTop, glassBottom]) assert.ok(r === g && g === b, 'glass uses only neutral grey');
+    assert.ok(glassTop[0] > glassBottom[0], 'glass shade changes gently from top to bottom');
+    for (const y of [9, 12, 14, 180, 182]) {
+        const [r, g, b, alpha] = pixel(targets[1].iw / 2, y);
+        assert.ok(r === g && g === b && r <= 84 && alpha <= 196, 'glass edges have no contrasting outline or highlight');
+    }
     assert.ok(etaEdges.width < targets[1].iw - 40 && turnEdges.width < targets[2].iw - 40,
         'short labels leave no painted background in the unused side space');
     const turnTop = edges(3, 6);
@@ -390,7 +394,7 @@ async function testHud() {
     tick(); await flush();
     const textUpdate = uploads[uploads.length - 1];
     assert.strictEqual(textUpdate.ref, 2);
-    assert.strictEqual(textUpdate.regions[0].y, 8 * 4, 'same-width updates leave the top rim intact');
+    assert.strictEqual(textUpdate.regions[0].y, 8 * 4, 'same-width updates only upload the text band');
     assert.strictEqual(textUpdate.regions[0].h, (48 - 16) * 4);
     payload = activePayload;
     config.clusterX = 554;

@@ -170,10 +170,9 @@ function drawOverlay(part, value) {
 
 const isClusterEta = part => part.target === 'map' && !part.turn;
 const GLASS_STOPS = [
-    [0, [132, 155, 200, 166]],
-    [0.10, [99, 121, 163, 166]],
-    [0.46, [50, 64, 95, 185]],
-    [1, [39, 48, 74, 185]],
+    [0, [84, 84, 84, 182]],
+    [0.48, [67, 67, 67, 191]],
+    [1, [53, 53, 53, 196]],
 ];
 
 function glassFrame(part, value, previous) {
@@ -188,13 +187,11 @@ function glassFrame(part, value, previous) {
     const cv = new ScaledCanvas(width, height, GLASS_SCALE).clear();
     const x = (width - card) / 2, radius = 14;
     cv.card(x, 2, card, height - 4, radius, GLASS_STOPS);
-    cv.strokeRoundRect(x, 2, card, height - 4, radius, 0.75, [222, 237, 255, 103]);
-    cv.line(x + radius, 3, x + card - radius, 3, 0.6, [235, 245, 255, 63]);
-    cv.text(text, width / 2, height / 2 + size * 0.34 + 0.7, size, [10, 18, 31, 143], style);
+    cv.text(text, width / 2, height / 2 + size * 0.34 + 0.7, size, [12, 12, 12, 143], style);
     cv.text(text, width / 2, height / 2 + size * 0.34, size, '#ffffff', style);
     const pixels = cv.canvas.d;
     // A width change repaints the union to erase old edges. Otherwise only
-    // the text band changes, so the glass rim need not be uploaded again.
+    // the text band changes, so the top and bottom need no upload.
     const unchangedWidth = card + 2 * margin === previous;
     const stride = width * GLASS_SCALE * 4;
     const y0 = unchangedWidth ? 8 * GLASS_SCALE : 0;
