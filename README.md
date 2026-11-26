@@ -2,6 +2,8 @@
 
 One MGU Store source for BMW head units running iDrive 7 (MGU/ID7).
 
+> **Live Waze features require Waze open and visible on the main iDrive screen in Apple CarPlay.** This applies to Waze ETA, maneuvers, lane and fork guidance, and the optional Waze source in Speed Limit Romania, including when the outputs are on the HUD or instrument cluster. The cluster map alone cannot supply these readings. Built-in demos can be used without Waze.
+
 ## Install and update
 
 1. Open **Sources** in MGU Store and add `metil31/idrive-apps`.
@@ -38,7 +40,7 @@ To try the experimental supplement, set Waze on the iPhone to always show the sp
 - **When the offline limit is uncertain** accepts a confirmed Waze reading when the offline value is missing, inferred, conditional, variable or directionally uncertain.
 - **Prefer Waze** can temporarily show a different confirmed Waze limit, even when the offline map has an explicit value.
 
-Both options need Waze in the foreground with a readable active metric route and a clearly recognized speed-limit sign. The figure in Waze's adjacent speedometer is excluded. Two consecutive readings must agree and fall within the same locally matched road and direction. Manual corrections take precedence, and the app falls back to the offline result when the reading expires, disagrees, or the road or direction changes. The comparison is local and temporary. It updates the display only and does not edit the offline map, cruise control or the vehicle's speed-limit assistance. The menu shows the available Waze reading and the offline value when a Waze reading takes over.
+Both options require Waze visible on the main iDrive screen in Apple CarPlay, with a readable active metric route and a clearly recognized speed-limit sign. The figure in Waze's adjacent speedometer is excluded. Two consecutive readings must agree and fall within the same locally matched road and direction. Manual corrections take precedence, and the app falls back to the offline result when the reading expires, disagrees, or the road or direction changes. The comparison is local and temporary. It updates the display only and does not edit the offline map, cruise control or the vehicle's speed-limit assistance. The menu shows the available Waze reading and the offline value when a Waze reading takes over.
 
 See [data provenance and verification](projects/speed-limit/VERIFICARE.md) for the offline pack and the difference between source disagreement and a verified permanent correction. Follow the actual road signs.
 
