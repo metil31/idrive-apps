@@ -14,11 +14,12 @@ The menus default to English. Select **Language → Romana** for Romanian withou
 
 | App | Current version | Function |
 | --- | --- | --- |
-| **Metil's HUD Apps** | 0.2.3 | Turn signals, native CarPlay ETA, and now-playing information |
-| **Waze ETA iOS** | 0.3.9 | Waze ETA, turns, roundabout exit number, lane guidance and forks |
-| **Speed Limit Romania** | 1.3.2 | Offline speed limits, cameras and priority signs, with an optional Waze limit |
+| **Metil's HUD Apps** | 0.2.4 | Turn signals, native CarPlay ETA, and now-playing information |
+| **Waze ETA iOS** | 0.3.10 | Waze ETA, turns, roundabout exit number, lane guidance and forks |
+| **Speed Limit Romania** | 1.3.3 | Offline speed limits, cameras and priority signs, with Waze preferred when confirmed |
+| **Drive Temps** | 0.1.0 | Engine oil, coolant and supported gearbox oil on the HUD and cluster |
 | **Seat Comfort** | 0.1.2 | Automatic front-seat heating at a cold start |
-| **Waze CarPlay Reader** | 0.3.1 | Shared capture tool for Waze ETA iOS and the optional Speed Limit Romania source |
+| **Waze CarPlay Reader** | 0.3.2 | Shared capture tool for Waze ETA iOS and the optional Speed Limit Romania source |
 
 ## Waze ETA iOS
 
@@ -38,11 +39,11 @@ The offline map provides speed limits and advance alerts for cameras, STOP and G
 
 To try the experimental supplement, set Waze on the iPhone to always show the speed limit next to its speedometer. Start a route, then select one of the following options in **Speed Limit Romania → Waze speed limit**. [Waze speedometer settings](https://support.google.com/waze/answer/6386895/get-speed-limit-alerts?hl=en-GB)
 
-- **Off** is the default. Use the offline map and local corrections.
+- **Prefer Waze** is the default and is applied once during this upgrade. A confirmed Waze limit overrides a different offline value, including local corrections. The menu identifies when Waze is being shown or agrees with the offline limit.
+- **Off** uses the offline map and local corrections.
 - **When the offline limit is uncertain** accepts a confirmed Waze reading when the offline value is missing, inferred, conditional, variable or directionally uncertain.
-- **Prefer Waze** can temporarily show a different confirmed Waze limit, even when the offline map has an explicit value.
 
-Both options require Waze visible on the main iDrive screen in Apple CarPlay, with a readable active metric route and a clearly recognized speed-limit sign. The figure in Waze's adjacent speedometer is excluded. Two consecutive readings must agree and fall within the same locally matched road and direction. Manual corrections take precedence, and the app falls back to the offline result when the reading expires, disagrees, or the road or direction changes. The comparison is local and temporary. It updates the display only and does not edit the offline map, cruise control or the vehicle's speed-limit assistance. The menu shows the available Waze reading and the offline value when a Waze reading takes over.
+Reading Waze requires the app visible on the main iDrive screen in Apple CarPlay, with a readable metric trip and speed-limit sign. If the arrival clock is unreadable in the full-screen layout, the trip row can still confirm metric units. Two consecutive sign readings must agree. A change in the locally matched road or direction resets that confirmation. The app falls back to the offline result when Waze's reading expires or becomes unconfirmed. The source selection only affects the displayed limit.
 
 See [data provenance and verification](projects/speed-limit/VERIFICARE.md) for the offline pack and the difference between source disagreement and a verified permanent correction. Follow the actual road signs.
 
@@ -53,6 +54,12 @@ The native iDrive menu has separate pages for **Media**, **Turn signals**, and *
 Media shows the current song and artist on the HUD, the active cluster map, or both, with independent position and size. Album art is optional and depends on the source. On the cluster map, the rounded background fits the title, artist and cover. On the HUD, Media remains transparent behind its text. Enable **Show song and artist** in the Media page. If the old standalone Media HUD app is still installed, turn off its display before enabling the merged one. [Credits and licenses](projects/sound-drive/apps/hud_romania/NOTICE)
 
 Turn signals and native ETA schedule updates for the next visible change. Media checks artwork and playback availability while a track or demo is displayed.
+
+## Drive Temps
+
+Shows engine oil, coolant and gearbox oil as blue digits. Enable one or both displays and move or resize each independently in **Drive Temps**. **Until warm** hides each sensor for the rest of the current READY cycle after it reaches its configured threshold. The starting thresholds are 80 °C for oil and coolant and 60 °C for gearbox oil. These are adjustable display thresholds, not model-specific operating limits. Choose **Always** to keep readings visible.
+
+Gearbox oil is available on supported vehicles, from a changing BMW temperature signal or a read-only EGS query. Missing readings are omitted. The demos show all three sample readings while stationary. The cluster overlay uses the full panel independently of the map. [Temperature source reference](projects/sound-drive/apps/drive_temps/NOTICE)
 
 ## Seat Comfort
 

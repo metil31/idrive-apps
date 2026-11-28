@@ -8,6 +8,7 @@ const { ClusterRender } = require('./cluster_render_client');
 const { MAP, hostArea, mapDisplays } = require('./map-area');
 const { displayPreview } = require('./kit/display-preview');
 const { menuLanguage } = require('./kit/menu-language');
+const { watchRetry } = require('./kit/watch-retry');
 
 const SOCKET = '/run/waze-eta-reader/control.sock';
 const TEXTURE_SCALE = 3, GLASS_SCALE = 4;
@@ -237,7 +238,7 @@ function glassFrame(part, value, previous) {
 }
 
 function background({ app, settings, signals, log }) {
-    let data = { code: 'idle' }, pending = false, ready = false, stopped = false, watch, leased = false;
+    let data = { code: 'idle' }, pending = false, ready = false, stopped = false, leased = false;
     let client, connected = false, host, maps, lastStatus = 0, asked = null;
     const layers = new Map();
     const preview = displayPreview(signals, log, () => ready && !stopped, draw);
@@ -344,15 +345,15 @@ function background({ app, settings, signals, log }) {
         if (!want() && timer !== null) { clearInterval(timer); timer = null; }
     }
     function tick() { pollWhileEnabled(); draw(); refresh(); }
-    signals.watch('de.bmw.infrastructure.VehicleCondition', '1', {
+    const condition = watchRetry(signals, 'de.bmw.infrastructure.VehicleCondition', '1', {
         VehicleCondition: (v) => { ready = conditionOf(v && v.statusConditionVehicle) === 10; if (!ready) preview.stop(); tick(); },
-    }, log).then((sub) => { if (stopped) sub.shutdown(); else watch = sub; }).catch(() => {});
+    }, log, { pollMs: 10000, poll: () => PARTS.some(part => settings.get(part.enabled)) });
     settings.onChange(tick);
     app.on('shutdown', () => {
         stopped = true;
         clearInterval(timer); preview.stop(); close();
         if (!pending && leased) request('stop').catch(() => {});
-        if (watch) watch.shutdown();
+        condition.stop();
     });
     return { refresh, preview, snapshot: () => ({ data, ready, clusterVisible: PARTS.some(part => part.target === 'map' && layers.has(part)) }) };
 }

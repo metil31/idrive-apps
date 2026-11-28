@@ -2,10 +2,19 @@
 
 const assert = require('assert');
 const EventEmitter = require('events');
+const fs = require('fs');
+const vm = require('vm');
 const { Canvas, ScaledCanvas } = require('../runtime/canvas');
 const { conditionOf } = require('../runtime/car');
 const { decodeTrack } = require('../../apps/hud_romania/media');
-const { startService } = require('../../apps/hud_romania/media-service');
+const mediaServicePath = require.resolve('../../apps/hud_romania/media-service');
+const mediaService = { exports: {} };
+vm.runInNewContext(fs.readFileSync(mediaServicePath, 'utf8'), {
+    module: mediaService, clearInterval, setInterval,
+    require: name => name.startsWith('./kit/') ? require('../runtime/' + name.slice(6)) :
+        require('../../apps/hud_romania/' + name.slice(2)),
+});
+const { startService } = mediaService.exports;
 const { fitText, drawTrack } = require('../../apps/hud_romania/media-view');
 const { AlbumArt } = require('../../apps/hud_romania/album-art');
 
@@ -182,7 +191,39 @@ async function verify() {
         assert.strictEqual(service.track(), null);
     } finally { service.stop(); }
 }
-verify().then(() => console.log('Media HUD România: redare, copertă, dimensiune și hartă găzduită verificate'), (error) => {
+async function verifyWatchRecovery() {
+    let timeout, attempts = 0, available, finish;
+    const seen = [];
+    const source = fs.readFileSync(require.resolve('../runtime/watch-retry'), 'utf8');
+    const isolated = { exports: {} };
+    vm.runInNewContext(source, { module: isolated, setTimeout(fn) { timeout = fn; return {}; }, clearTimeout() {} });
+    const watcher = isolated.exports.watchRetry({
+        async watch(_iface, _instance, _handlers, _log, opts) {
+            if (++attempts === 1) return { error: 'provider not ready' };
+            available = opts.onAvailability;
+            return { shutdown() {}, proxy: { getValue() { return new Promise(resolve => { finish = resolve; }); } } };
+        },
+    }, 'MediaPlayer', 'CarPlayMedia', { playerState: event => seen.push(event) }, null, { pollMs: 6000 });
+    const flush = () => new Promise(resolve => setImmediate(resolve));
+    await flush();
+    timeout();
+    await flush();
+    assert.strictEqual(attempts, 2);
+    timeout();
+    await flush();
+    available(false);
+    finish('stale');
+    await flush();
+    assert.deepStrictEqual(seen, []);
+    available(true);
+    await flush();
+    finish('PLAYER_STATE_PLAY');
+    await flush();
+    assert.deepStrictEqual(seen, ['PLAYER_STATE_PLAY']);
+    watcher.stop();
+}
+
+verify().then(verifyWatchRecovery).then(() => console.log('Media HUD România: render, source retry and reconnect verified'), (error) => {
     console.error(error);
     process.exitCode = 1;
 });

@@ -2,6 +2,7 @@
 
 const { decodeTrack, field, isPlaying } = require('./media');
 const { MediaOutput } = require('./media-view');
+const { watchRetry } = require('./kit/watch-retry');
 
 const CONDITION = 'de.bmw.infrastructure.VehicleCondition';
 const MEDIA = 'de.bmw.infotainment.entertainment.mediaplayer.MediaPlayer';
@@ -10,7 +11,6 @@ function startService(ctx, deps) {
     const { signals, settings, log, app } = ctx;
     const out = new MediaOutput(deps.makeClient, deps.Canvas, deps.ScaledCanvas);
     let awake = false, track = null, playing = false, stopped = false, player = null, wasAvailable = false, timer = null;
-    const subs = [];
     const outputTrack = () => settings.get('enabled') && awake && player && player.available && playing ? track : null;
     const sampleTrack = { title: 'Demo · Midnight Drive', artist: 'Metil' };
     const tick = () => {
@@ -31,35 +31,31 @@ function startService(ctx, deps) {
             timer = null;
         }
     };
-    function watch(iface, instance, handlers) {
-        const wrapped = {};
-        Object.keys(handlers).forEach((key) => {
-            wrapped[key] = (value) => {
-                if (stopped) return;
-                handlers[key](value);
-                tick();
-            };
-        });
-        return signals.watch(iface, instance, wrapped, log).then((sub) => {
-            if (stopped) return sub.shutdown();
-            subs.push(sub);
-            return sub;
-        }).catch((error) => log.warn('Source unavailable: ' + iface + ': ' + error.message));
-    }
-    watch(CONDITION, '1', {
-        VehicleCondition: (value) => { awake = deps.conditionOf(field(value, 'statusConditionVehicle')) === 10; },
+    const condition = watchRetry(signals, CONDITION, '1', {
+        VehicleCondition: (value) => {
+            awake = deps.conditionOf(field(value, 'statusConditionVehicle')) === 10;
+            tick();
+        },
+    }, log, { pollMs: 10000, poll: () => settings.get('enabled') });
+    const media = watchRetry(signals, MEDIA, 'CarPlayMedia', {
+        currentItemMetadata: (value) => { track = decodeTrack(value); tick(); },
+        playerState: (value) => { playing = isPlaying(value); tick(); },
+    }, log, {
+        pollMs: 6000, poll: () => awake && settings.get('enabled'),
+        onAttach: (sub) => { player = sub; tick(); },
+        onAvailability: (available) => {
+            if (!available) { track = null; playing = false; }
+            tick();
+        },
     });
-    watch(MEDIA, 'CarPlayMedia', {
-        currentItemMetadata: (value) => { track = decodeTrack(value); },
-        playerState: (value) => { playing = isPlaying(value); },
-    }).then((sub) => { if (!stopped && sub) { player = sub; tick(); } });
     settings.onChange(tick);
     const stop = () => {
         if (stopped) return;
         stopped = true;
         clearInterval(timer);
         out.stop();
-        subs.forEach((sub) => Promise.resolve(sub.shutdown()).catch(() => {}));
+        condition.stop();
+        media.stop();
     };
     if (app && typeof app.on === 'function') app.on('shutdown', stop);
     function status(t = en => en) {

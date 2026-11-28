@@ -83,7 +83,11 @@ async function watch(iface, instance, handlers, log, opts) {
             }
         });
         await nativeTick(() => {
-            try { return p.subscribeToAvailability((a) => { res.available = !!a; if (a) setImmediate(fetchAll); }); } catch (e) { return null; /* older binding */ }
+            try { return p.subscribeToAvailability((a) => {
+                res.available = !!a;
+                if (opts && opts.onAvailability) opts.onAvailability(res.available);
+                if (a) setImmediate(fetchAll);
+            }); } catch (e) { return null; /* older binding */ }
         });
         for (const f of fields) {
             try {

@@ -2,7 +2,7 @@
   "id": "hud_romania",
   "title": "Metil's HUD Apps",
   "description": "Turn signals and CarPlay arrival on HUD, plus media on HUD and the cluster map.",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "language": "en",
   "license": "MIT",
   "vendor": "custom",
@@ -13,7 +13,7 @@
     "cluster-render": "0.3.7"
   },
   "signals": {
-    "de.bmw.infrastructure.VehicleCondition": {"_optional": "Vehicle READY state", "VehicleCondition": "s"},
+    "de.bmw.infrastructure.VehicleCondition": {"_optional": "Vehicle READY state", "VehicleCondition": "rs"},
     "de.bmw.body.Light": {"_optional": "Turn signals and hazard lights", "StatusFunctionsIndicators": "s", "StatusFunctionsIndicators2": "s"},
     "de.bmw.infotainment.navigation.projectedmodeguiding.ProjectedModeGuiding": {"_instances": "Main_Instance", "_optional": "CarPlay arrival estimates", "waypoints": "s"},
     "de.bmw.infotainment.navigation.guiding.Guidance": {"_instances": "Main_Instance", "_optional": "Projected route provider", "guidingProvider": "rs"},

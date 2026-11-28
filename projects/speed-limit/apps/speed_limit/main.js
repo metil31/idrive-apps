@@ -184,7 +184,7 @@ class Engine {
         const r = this.res, wazeMode = this.settings.get('wazeLimit');
         if ((wazeMode === 'uncertain' || wazeMode === 'prefer') && this.condition === 10 && !this.demo) {
             const road = r && r.state === 'match' && r.way && r.dir && this.fix && this.fix.age <= 2500 ?
-                r.way + ':' + r.dir : '';
+                r.way + ':' + r.dir : wazeMode === 'prefer' ? 'unmatched' : '';
             this.waze.tick(now, road);
         } else if (this.waze.road || this.waze.due) this.waze.reset();
         this._decide(now);
@@ -491,7 +491,10 @@ mgu.run({
             once('wazeMode', wazeMode, () => ui.selected('SL_WAZE', wazeMode));
             const reading = wazeMode && engine.waze.value(Date.now());
             const wazeStatus = !wazeMode ? t('Waze: off', 'Waze: dezactivat') : reading ?
-                'Waze: ' + reading + ' km/h' : t('Waze: waiting for a confirmed limit', 'Waze: asteapta o limita confirmata');
+                'Waze: ' + reading + ' km/h · ' +
+                (engine.view && engine.view.source === 'waze' ? t('shown', 'afisat') :
+                    engine.res && engine.res.limit === reading ? t('matches offline', 'identic cu offline') : t('offline shown', 'se afiseaza offline')) :
+                t('Waze: waiting for a confirmed limit', 'Waze: asteapta o limita confirmata');
             once('wazeStatus', wazeStatus, () => ui.text('SL_WAZE_STATUS', wazeStatus));
             once('keep', !!s.get('hudKeep'), () => ui.checked('SL_HUD_KEEP', !!s.get('hudKeep')));
             once('map', mapText(engine, t), () => ui.text('SL_MAP', mapText(engine, t)));

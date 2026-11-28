@@ -3,7 +3,7 @@
 const fs = require('fs');
 const net = require('net');
 const { execFile } = require('child_process');
-const { model, readEta, readTurn, readSpeedLimit, hasWazeDock } = require('./ocr');
+const { model, readEta, readMetricTrip, readTurn, readSpeedLimit, hasWazeDock } = require('./ocr');
 const INTERVAL = 4000;
 const KEEP = 120000;
 const TURN_KEEP = 9500;
@@ -54,7 +54,7 @@ function state(now) {
         wantsNavigation: () => leased('navigation'),
         result(token, value, reason, turn, limit, capturedAt = now()) {
             if (!active() || !canCapture() || token !== generation) return;
-            if (!leased('limit') || !value || !limit) clearLimit();
+            if (!leased('limit') || !limit) clearLimit();
             else {
                 const previous = candidateLimit;
                 // A late or conflicting frame cannot refresh a previous road sign.
@@ -117,29 +117,54 @@ function run() {
             schema: { t: 'Enum', e: { PROJECTED: 0, NATIVE: 1 } } } },
         eventGroups: { fields: { '32770': [2] }, events: { '32773': [5] } },
     };
-    let gateStatus = 'initializing';
-    Promise.resolve().then(() => require('/usr/lib/someip.node').buildProxy(interfaceInfo, 'CarPlayManagerInst1')).then(async (proxy) => {
-        await proxy.init();
-        const guidance = (value) => {
-            probe.setGuidance(value && typeof value === 'object' ? value.projectedGuidanceActive : value);
-            scheduleCapture();
-        };
-        Promise.resolve().then(() => proxy.subscribe({ name: 'projectedGuidanceActive', onReceive: guidance }))
-            .then(() => proxy.getValue && proxy.getValue('projectedGuidanceActive').then(guidance)).catch(() => {});
-        await proxy.subscribe({ name: 'onScreenChange', onReceive: (value) => {
+    let gateStatus = 'initializing', gate, gateEpoch = 0, guidanceDue = 0;
+    function guidance(value) {
+        probe.setGuidance(value && typeof value === 'object' ? value.projectedGuidanceActive : value);
+        scheduleCapture();
+    }
+    function refreshGuidance() {
+        if (!gate || !gate.getValue || Date.now() < guidanceDue) return;
+        const proxy = gate, epoch = gateEpoch;
+        guidanceDue = Date.now() + 12000;
+        Promise.resolve().then(() => proxy.getValue('projectedGuidanceActive', 2500))
+            .then(value => { if (gate === proxy && gateEpoch === epoch) guidance(value); }).catch(() => {});
+    }
+    async function connectGate() {
+        let proxy;
+        const screen = (value) => {
+            if (gate !== proxy) return;
             const owner = value && typeof value === 'object' ? value.screenOwner : value;
             if (owner === 0 || owner === 'PROJECTED') probe.setFront(true);
             if (owner === 1 || owner === 'NATIVE') probe.setFront(false);
             scheduleCapture();
-        } });
-        gateStatus = 'ready';
-        if (proxy.subscribeToAvailability) {
-            try { await proxy.subscribeToAvailability((available) => {
-                if (!available) { probe.setGuidance(false); probe.setFront(null); scheduleCapture(); }
-            }); }
-            catch (error) { console.warn('CarPlay availability: ' + error.message); }
+        };
+        try {
+            proxy = await require('/usr/lib/someip.node').buildProxy(interfaceInfo, 'CarPlayManagerInst1');
+            await proxy.init();
+            gate = proxy;
+            await proxy.subscribe({ name: 'onScreenChange', onReceive: screen });
+            try {
+                await proxy.subscribe({ name: 'projectedGuidanceActive',
+                    onReceive: value => { if (gate === proxy) guidance(value); } });
+            } catch (error) { console.warn('CarPlay guidance event: ' + error.message); }
+            if (proxy.subscribeToAvailability) {
+                try { await proxy.subscribeToAvailability((available) => {
+                    if (gate !== proxy) return;
+                    guidanceDue = 0;
+                    if (available) refreshGuidance();
+                    else { gateEpoch++; probe.setGuidance(false); probe.setFront(null); scheduleCapture(); }
+                }); } catch (error) { console.warn('CarPlay availability: ' + error.message); }
+            }
+            gateStatus = 'ready';
+            refreshGuidance();
+        } catch (error) {
+            gate = null;
+            gateStatus = 'unavailable';
+            console.warn('CarPlay: ' + error.message);
+            if (proxy && proxy.shutdown) Promise.resolve().then(() => proxy.shutdown()).catch(() => {});
+            setTimeout(connectGate, 10000);
         }
-    }).catch((error) => { gateStatus = 'unavailable'; console.error('CarPlay: ' + error.message); });
+    }
 
     let capturing = false, timer = null, nextCapture = 0;
     let captureDetail = '';
@@ -176,8 +201,12 @@ function run() {
                 const frame = fs.readFileSync(FRAME);
                 if (!templates) templates = model([require('./eta-atlas.json')]);
                 const eta = readEta(frame, dims[0], dims[1], templates);
-                const metric = probe.wantsLimit() && eta && / (m|km)$/.test(eta.distance) && hasWazeDock(frame, dims[0], dims[1]);
-                const limit = metric ? readSpeedLimit(frame, dims[0], dims[1], templates, eta.layout) : null;
+                let limit = null;
+                if (probe.wantsLimit() && hasWazeDock(frame, dims[0], dims[1])) {
+                    const layout = eta ? (/ (m|km)$/.test(eta.distance) ? eta.layout : null) :
+                        readMetricTrip(frame, dims[0], dims[1], templates) ? 'fullscreen' : null;
+                    if (layout) limit = readSpeedLimit(frame, dims[0], dims[1], templates, layout);
+                }
                 const turn = eta && probe.wantsNavigation() ? readTurn(frame, dims[0], dims[1], templates, eta.layout) : null;
                 probe.result(token, eta, 'no-eta', turn, limit, capturedAt);
             } catch (err) {
@@ -203,6 +232,7 @@ function run() {
             else if (command === 'limit') probe.start('limit');
             else if (command !== 'get') { socket.destroy(); return; }
             socket.end(JSON.stringify(Object.assign(probe.snapshot(), { gateStatus, captureDetail })) + '\n');
+            if (command === 'start' || command === 'limit') refreshGuidance();
             scheduleCapture();
         });
     });
@@ -215,6 +245,7 @@ function run() {
         fs.chownSync(SOCKET, 0, Number(entry.split(':')[2]));
         fs.chmodSync(SOCKET, 0o660);
     });
+    connectGate();
 }
 
 if (require.main === module) run();

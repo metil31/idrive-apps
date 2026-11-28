@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
 const zlib = require('zlib');
-const { model, readEta, readTurn, readSpeedLimit, hasWazeDock } = require('../../tools/waze-eta-reader/ocr');
+const { model, readEta, readMetricTrip, readTurn, readSpeedLimit, hasWazeDock } = require('../../tools/waze-eta-reader/ocr');
 const { state, KEEP, LEASE } = require('../../tools/waze-eta-reader/reader');
 const { ScaledCanvas } = require('../runtime/canvas');
 const atlas = require('../../tools/waze-eta-reader/eta-atlas.json');
@@ -142,6 +142,11 @@ assert.strictEqual(dual.snapshot().limit, null, 'a hidden centre screen cannot s
 
 dual.setFront(true);
 dualToken = dual.captureToken();
+dual.start('limit');
+dual.result(dualToken, null, 'no-eta', null, 80);
+time += 4000;
+dual.result(dualToken, null, 'no-eta', null, 80);
+assert.strictEqual(dual.snapshot().limit.kmh, 80, 'speed confirmation is independent of arrival-clock OCR');
 const laneTest = { ...left, lanes: [{ kind: 'left', active: true }, { kind: 'straight', active: false }] };
 dual.result(dualToken, synthetic, null, left);
 dual.result(dualToken, synthetic, null, laneTest);
@@ -160,6 +165,11 @@ if (external.length) {
     assert.deepStrictEqual(values(read(external[0])), ['17:15', '36 min', '12 km', 'dashboard']);
     assert.deepStrictEqual(values(read(external[1])), ['17:15', '36 min', '12 km', 'fullscreen']);
     assert.strictEqual(read(external[2]), null);
+    const noClock = fs.readFileSync(external[1]);
+    for (let y = 400; y < 428; y++) noClock.fill(0, (y * 1280 + 102) * 4, (y * 1280 + 282) * 4);
+    assert.strictEqual(readEta(noClock, 1280, 480, templates), null);
+    assert.strictEqual(readMetricTrip(noClock, 1280, 480, templates), true);
+    assert.strictEqual(readMetricTrip(fs.readFileSync(external[2]), 1280, 480, templates), false);
     for (const [index, mode] of [[0, 'dashboard'], [1, 'fullscreen']]) {
         assert.deepStrictEqual(readTurn(fs.readFileSync(external[index]), 1280, 480, templates, mode), left);
         assert.strictEqual(readSpeedLimit(fs.readFileSync(external[index]), 1280, 480, templates, mode), 30);
@@ -201,17 +211,20 @@ if (external.length) {
 }
 
 async function testReaderScheduling() {
-    let now = 1000, acceptSocket, finishCapture, captures = 0, sequence = 0;
+    let now = 1000, acceptSocket, finishCapture, captures = 0, sequence = 0, boots = 0;
     const timers = new Map(), listeners = new Map();
     const dependencies = {
         fs: { unlinkSync() {} },
         net: { createServer(handler) { acceptSocket = handler; return { listen() {} }; } },
         child_process: { execFile(_file, _args, _options, done) { captures++; finishCapture = done; } },
         './ocr': {},
-        '/usr/lib/someip.node': { buildProxy: () => ({
-            async init() {},
-            async subscribe({ name, onReceive }) { listeners.set(name, onReceive); },
-        }) },
+        '/usr/lib/someip.node': { buildProxy: () => {
+            if (++boots === 1) throw new Error('CarPlay service not ready');
+            return {
+                async init() {},
+                async subscribe({ name, onReceive }) { listeners.set(name, onReceive); },
+            };
+        } },
     };
     const file = path.join(__dirname, '../../tools/waze-eta-reader/reader.js');
     vm.runInNewContext(fs.readFileSync(file, 'utf8') + '\nrun();', {
@@ -234,6 +247,9 @@ async function testReaderScheduling() {
         now += delay;
         timer.fire();
     }
+    fireTimer(10000);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.strictEqual(boots, 2, 'the reader attaches again after a failed startup');
     const screen = listeners.get('onScreenChange');
     screen('PROJECTED');
     assert.strictEqual(timers.size, 0, 'no capture timer without a lease');
@@ -314,6 +330,7 @@ async function testHud() {
     const deps = {
         net, './kit/display-preview': require('../runtime/display-preview'),
         './kit/menu-language': require('../runtime/menu-language'), './kit/mgu': { run: (value) => { appImpl = value; } },
+        './kit/watch-retry': require('../runtime/watch-retry'),
         './kit/car': { conditionOf: (n) => n },
         './kit/canvas': { ScaledCanvas: RecordingCanvas },
         './map-area': require('../../apps/waze_eta_ro/map-area'),

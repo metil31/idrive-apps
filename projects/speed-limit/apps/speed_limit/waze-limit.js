@@ -30,7 +30,7 @@ function eligible(reading, roadSince, now) {
 }
 
 function chooseWazeLimit(waze, mode, offline) {
-    if (!waze || (offline && offline.corrected)) return null;
+    if (!waze || mode !== 'prefer' && offline && offline.corrected) return null;
     const uncertain = !offline || !offline.limit || offline.inferred || offline.uncertain || offline.variable;
     if (mode !== 'prefer' && !(mode === 'uncertain' && uncertain)) return null;
     return uncertain || offline.limit !== waze ? waze : null;

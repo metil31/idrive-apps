@@ -207,6 +207,19 @@ function readEta(frame, width, height, templates) {
     return reads[0] || null;
 }
 
+// Full-screen Waze has a separate trip row. A failed arrival-clock OCR
+// need not block the speed sign when that row still confirms metric units.
+function readMetricTrip(frame, width, height, templates) {
+    if (frame.length !== width * height * 4 || Math.abs(width / height - 8 / 3) > 0.03) return false;
+    let best = null;
+    for (const threshold of [187, 208, 166, 227]) {
+        const glyphs = line(frame, width, height, AREAS.fullscreen[1], threshold);
+        const trip = candidates(glyphs, 'trip', templates)[0];
+        if (trip && Number(trip.values[2].replace(',', '.')) > 0 && (!best || trip.cost < best.cost)) best = trip;
+    }
+    return !!best && /^(km|m)$/.test(best.values[3]);
+}
+
 const TURN_THRESHOLDS = [187, 208, 166, 227];
 
 function readTurnDistance(frame, width, height, rect, threshold, templates) {
@@ -421,4 +434,4 @@ function readSpeedLimit(frame, width, height, templates, layout) {
     return counts.size === 1 && [...counts.values()][0] >= 2 ? [...counts.keys()][0] : null;
 }
 
-module.exports = { model, readEta, readTurn, readSpeedLimit, hasWazeDock };
+module.exports = { model, readEta, readMetricTrip, readTurn, readSpeedLimit, hasWazeDock };

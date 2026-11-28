@@ -2,8 +2,8 @@
   "id": "speed_limit",
   "title": "Speed Limit Romania",
   "description": "Offline speed limits and priority signs from OpenStreetMap Romania.",
-  "version": "1.3.2",
-  "requires": {"waze-eta-reader": "0.3.1"},
+  "version": "1.3.3",
+  "requires": {"waze-eta-reader": "0.3.2"},
   "language": "en",
   "vendor": "custom",
   "loggingId": "OASL",
@@ -297,7 +297,7 @@
     }
   ],
   "settings": [
-    {"key": "wazeLimit", "label": "Waze speed limit", "type": "choice", "default": "offline", "options": [["offline", "Off"], ["uncertain", "When the offline limit is uncertain"], ["prefer", "Prefer Waze"]], "hidden": true},
+    {"key": "wazeLimit", "label": "Waze speed limit", "type": "choice", "default": "prefer", "reset": 1, "options": [["offline", "Off"], ["uncertain", "When the offline limit is uncertain"], ["prefer", "Prefer Waze"]], "hidden": true},
     {"key": "menuLanguage", "label": "Language", "type": "choice", "default": "en", "options": [["en", "English"], ["ro", "Romana"]], "hidden": true},
     {
       "key": "show",

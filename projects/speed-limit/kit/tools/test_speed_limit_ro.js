@@ -23,7 +23,10 @@ assert.strictEqual(chooseWazeLimit(80, 'prefer', { limit: 70 }), 80);
 assert.strictEqual(chooseWazeLimit(80, 'uncertain', { limit: 70 }), null);
 assert.strictEqual(chooseWazeLimit(80, 'uncertain', { limit: 70, inferred: true }), 80);
 assert.strictEqual(chooseWazeLimit(80, 'uncertain', { limit: null, variable: true }), 80);
-assert.strictEqual(chooseWazeLimit(80, 'prefer', { limit: 70, corrected: true }), null);
+assert.strictEqual(chooseWazeLimit(80, 'prefer', { limit: 70, corrected: true }), 80);
+assert.strictEqual(chooseWazeLimit(80, 'uncertain', { limit: 70, corrected: true, inferred: true }), null);
+assert.strictEqual(chooseWazeLimit(80, 'prefer', null), 80);
+assert.strictEqual(chooseWazeLimit(80, 'prefer', { limit: 80 }), null);
 assert.strictEqual(chooseWazeLimit(80, 'offline', { limit: 70, inferred: true }), null);
 
 /* Romania-specific rules plus sanity checks against the generated Geofabrik pack. Node 8 compatible. */

@@ -1,0 +1,7 @@
+Drive Temps uses the BMW temperature signal scaling and the gearbox
+read-only identifier documented by Warm-Up / cauliflowermossgrape, MIT.
+https://github.com/cauliflowermossgrape/idrive7-apps/tree/527e9b2514c516a3b43f4a0643452c1ce931eeb6/apps/warmup
+
+cluster_render_client.js: Copyright (C) 2026 Robert Nisipeanu, MPL-2.0.
+https://github.com/robertnisipeanu/idrive-apps/tree/main/native/cluster-render/js
+License text: https://mozilla.org/MPL/2.0/
