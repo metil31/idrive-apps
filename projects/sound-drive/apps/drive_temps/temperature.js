@@ -3,7 +3,7 @@
 const SENSORS = [
     { id: 'oil', label: ['OIL', 'ULEI'], demo: 66, min: 60, max: 110, warm: 80 },
     { id: 'coolant', label: ['COOLANT', 'APA'], demo: 72, min: 60, max: 110, warm: 80 },
-    { id: 'gearbox', label: ['GEAR OIL', 'CUTIE'], demo: 48, min: 40, max: 100, warm: 60 },
+    { id: 'gearbox', label: ['GEARBOX', 'CUTIE'], demo: 48, min: 40, max: 100, warm: 60 },
 ];
 const FRESH_MS = 25000;
 

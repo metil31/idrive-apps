@@ -4,10 +4,11 @@ const assert = require('assert');
 const fs = require('fs');
 const { EventEmitter } = require('events');
 const vm = require('vm');
-const { Temperatures, decode } = require('../../apps/drive_temps/temperature');
+const { Temperatures, SENSORS, decode } = require('../../apps/drive_temps/temperature');
 const spec = require('../../apps/drive_temps/app.json');
 
 const defaults = Object.fromEntries(spec.settings.map(entry => [entry.key, entry.default]));
+assert.strictEqual(SENSORS.find(sensor => sensor.id === 'gearbox').label[0], 'GEARBOX');
 const readings = new Temperatures();
 const get = key => defaults[key];
 assert.strictEqual(decode(255), null);
@@ -26,7 +27,7 @@ readings.engine({ temperatureEngineOilDrive: 125 }, 300);
 assert.strictEqual(readings.visible({ get }, 301)[0].value, 77, 'a new drive resets warm-up');
 
 async function backgroundTest() {
-    const subscriptions = new Map(), layers = [], changes = [], frames = [];
+    const subscriptions = new Map(), layers = [], changes = [], frames = [], dropped = [];
     const settings = { values: { ...defaults }, get(key) { return this.values[key]; },
         onChange(fn) { this.changed = fn; }, set(key, value) { this.values[key] = value; this.changed(key); } };
     let entry, now = 10000, timer, closed = 0;
@@ -38,7 +39,7 @@ async function backgroundTest() {
         set(ref, target) { changes.push({ ref, target }); }
         pixels(ref, _crop, rgba) { frames.push({ ref, rgba }); return true; }
         close() { closed++; }
-        drop() {}
+        drop(ref) { dropped.push(ref); }
     }
     const deps = {
         './kit/mgu': { run: app => { entry = app; } },
@@ -82,7 +83,21 @@ async function backgroundTest() {
     assert.deepStrictEqual(egsReads.map(item => item.join(':')), ['24:24576']);
     assert.strictEqual(service.snapshot().readings[2], 56, 'EGS reports a live gearbox temperature in Celsius');
     settings.set('cluster', true);
-    assert.ok(layers.some(layer => layer.target === 'panel'), 'the cluster overlay does not require a Waze map');
+    const panel = layers.find(layer => layer.target === 'panel');
+    assert.strictEqual(panel.iw, 584, 'the cluster overlay does not require a Waze map');
+    const previous = layers.length;
+    settings.set('hudLayout', 'vertical');
+    const vertical = layers[layers.length - 1];
+    assert.strictEqual(layers.length, previous + 1);
+    assert.deepStrictEqual([vertical.target, vertical.iw, vertical.ih], ['hud', 208, 336]);
+    assert.deepStrictEqual([vertical.x + vertical.w / 2, vertical.y + vertical.h / 2], [410, 180]);
+    assert.deepStrictEqual(dropped, [1], 'only the HUD layer is recreated when its layout changes');
+    const stacked = frames[frames.length - 1].rgba;
+    for (let row = 0; row < 3; row++) {
+        const band = stacked.subarray(row * 112 * vertical.iw * 4, (row + 1) * 112 * vertical.iw * 4);
+        assert.ok(band.some((v, i) => i % 4 === 0 && v === 104 && band[i + 1] === 202 && band[i + 2] === 255 && band[i + 3] === 255),
+            'each vertical row has its own blue reading');
+    }
     subscriptions.get('VehicleCondition')({ statusConditionVehicle: 'WOHNEN' });
     assert.ok(closed > 0);
     app.emit('shutdown');

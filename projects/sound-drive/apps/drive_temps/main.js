@@ -17,28 +17,41 @@ const TARGETS = {
     hud: { w: 800, h: 480, tx: 400, ty: 180, key: 'hud' },
     panel: { w: 1920, h: 720, tx: 960, ty: 610, key: 'cluster' },
 };
-const W = 292, H = 56, SCALE = 2;
+const LAYOUTS = {
+    horizontal: { w: 292, h: 56, dx: 94, dy: 0 },
+    vertical: { w: 104, h: 168, dx: 0, dy: 56 },
+};
+const LAYOUT_KEYS = Object.keys(LAYOUTS);
+const SCALE = 2;
 const SIZES = [70, 80, 90, 100, 110, 120, 130];
 
-function place(settings, target) {
+function layoutOf(settings, key) {
+    return settings.get(key + 'Layout') === 'vertical' ? 'vertical' : 'horizontal';
+}
+
+function place(settings, target, layout = LAYOUTS[layoutOf(settings, target.key)]) {
     const { w, h, tx, ty, key } = target;
     const scale = (SIZES[settings.get(key + 'Size')] || 100) / 100;
-    const width = Math.round(W * scale), height = Math.round(H * scale);
+    const width = Math.round(layout.w * scale), height = Math.round(layout.h * scale);
     const clamp = (value, max) => Math.max(0, Math.min(max, Math.round(value)));
     const x = clamp(tx + Number(settings.get(key + 'X') || 0) - width / 2, w - width);
     const y = clamp(ty + Number(settings.get(key + 'Y') || 0) - height / 2, h - height);
     return { x, y, w: width, h: height };
 }
 
-function renderCard(readings, romanian) {
-    const cv = new ScaledCanvas(W, H, SCALE).clear();
+function renderCard(readings, romanian, layout = LAYOUTS.horizontal) {
+    const { w, h, dx, dy } = layout;
+    const cv = new ScaledCanvas(w, h, SCALE).clear();
     const style = { align: 'center', font: 'bold', literal: true };
     readings.forEach(({ sensor, value }, index) => {
-        const x = W / 2 + (index - (readings.length - 1) / 2) * 94;
-        cv.text(sensor.label[romanian ? 1 : 0], x, 14, 11, '#e1edf8', style);
+        const offset = index - (readings.length - 1) / 2;
+        const x = w / 2 + offset * dx, y = (h - 56) / 2 + offset * dy;
+        const label = sensor.label[romanian ? 1 : 0];
+        cv.text(label, x, y + 15, 12, '#172435', style);
+        cv.text(label, x, y + 14, 12, '#f3f7fd', style);
         const text = Math.round(value) + '°';
-        cv.text(text, x, 45, 28, '#102136', style);
-        cv.text(text, x, 43, 28, '#68caff', style);
+        cv.text(text, x, y + 45, 28, '#102136', style);
+        cv.text(text, x, y + 43, 28, '#68caff', style);
     });
     const pixels = cv.canvas.d;
     return Buffer.from(pixels.buffer, pixels.byteOffset, pixels.byteLength);
@@ -71,7 +84,7 @@ function background({ app, settings, signals, log }) {
         if (!connected) return;
         const romanian = settings.get('menuLanguage') === 'ro';
         const key = JSON.stringify([romanian, values.map(item => [item.sensor.id, Math.round(item.value)])]);
-        let pixels;
+        const textures = new Map();
         for (const [surface, target] of Object.entries(TARGETS)) {
             let layer = layers.get(surface);
             const offered = client.targets.split(',').includes(surface + ':' + target.w + 'x' + target.h);
@@ -79,20 +92,24 @@ function background({ app, settings, signals, log }) {
                 if (layer) { client.drop(layer.ref); layers.delete(surface); }
                 continue;
             }
-            const rect = place(settings, target), at = JSON.stringify(rect);
+            const layoutKey = layoutOf(settings, target.key), layout = LAYOUTS[layoutKey];
+            const rect = place(settings, target, layout), at = JSON.stringify(rect);
+            if (layer && layer.layoutKey !== layoutKey) {
+                client.drop(layer.ref); layers.delete(surface); layer = null;
+            }
             if (!layer) {
                 const ref = client.image(Object.assign({ target: surface, klass: 'overlay', z: 14,
-                    iw: W * SCALE, ih: H * SCALE, sampling: 'bilinear', fps: 2, contend: 0, yield: 1 }, rect));
+                    iw: layout.w * SCALE, ih: layout.h * SCALE, sampling: 'bilinear', fps: 2, contend: 0, yield: 1 }, rect));
                 if (!ref) continue;
-                layer = { ref, at };
+                layer = { ref, at, layoutKey };
                 layers.set(surface, layer);
             } else if (layer.at !== at) {
                 client.set(layer.ref, rect);
                 layer.at = at;
             }
             if (key !== layer.key) {
-                if (!pixels) pixels = renderCard(values, romanian);
-                if (client.pixels(layer.ref, null, pixels)) layer.key = key;
+                if (!textures.has(layoutKey)) textures.set(layoutKey, renderCard(values, romanian, layout));
+                if (client.pixels(layer.ref, null, textures.get(layoutKey))) layer.key = key;
             }
         }
     }
@@ -198,6 +215,7 @@ function start(ctx) {
     for (const [surface, target] of Object.entries(TARGETS)) {
         const prefix = 'DT_' + surface.toUpperCase(), key = target.key;
         toggle(prefix + '_ON', key);
+        select(prefix + '_LAYOUT', key + 'Layout', LAYOUT_KEYS);
         slider(prefix + '_SIZE', key + 'Size', step => Math.max(0, Math.min(6, step)));
         for (const [dir, axis, step] of [['LEFT', 'X', -10], ['RIGHT', 'X', 10], ['UP', 'Y', -10], ['DOWN', 'Y', 10]]) {
             ui.onClick(prefix + '_' + dir, () => {
@@ -239,6 +257,7 @@ function start(ctx) {
         for (const [surface, { key }] of Object.entries(TARGETS)) {
             const prefix = 'DT_' + surface.toUpperCase(), id = prefix + '_SIZE';
             write(prefix + '_ON', settings.get(key), v => ui.checked(prefix + '_ON', v));
+            write(prefix + '_LAYOUT', LAYOUT_KEYS.indexOf(layoutOf(settings, key)), v => ui.selected(prefix + '_LAYOUT', v));
             write(id, settings.get(key + 'Size'), step => {
                 ui.cells(id, 0, { TextDescription: t('Size ', 'Marime ') + SIZES[step] + '%' });
                 const component = ui.comp(id);

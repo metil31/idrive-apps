@@ -17,7 +17,7 @@ The menus default to English. Select **Language → Romana** for Romanian withou
 | **Metil's HUD Apps** | 0.2.4 | Turn signals, native CarPlay ETA, and now-playing information |
 | **Waze ETA iOS** | 0.3.10 | Waze ETA, turns, roundabout exit number, lane guidance and forks |
 | **Speed Limit Romania** | 1.3.3 | Offline speed limits, cameras and priority signs, with Waze preferred when confirmed |
-| **Drive Temps** | 0.1.0 | Engine oil, coolant and supported gearbox oil on the HUD and cluster |
+| **Drive Temps** | 0.1.1 | Engine oil, coolant and supported gearbox oil on the HUD and cluster |
 | **Seat Comfort** | 0.1.2 | Automatic front-seat heating at a cold start |
 | **Waze CarPlay Reader** | 0.3.2 | Shared capture tool for Waze ETA iOS and the optional Speed Limit Romania source |
 
@@ -57,7 +57,7 @@ Turn signals and native ETA schedule updates for the next visible change. Media 
 
 ## Drive Temps
 
-Shows engine oil, coolant and gearbox oil as blue digits. Enable one or both displays and move or resize each independently in **Drive Temps**. **Until warm** hides each sensor for the rest of the current READY cycle after it reaches its configured threshold. The starting thresholds are 80 °C for oil and coolant and 60 °C for gearbox oil. These are adjustable display thresholds, not model-specific operating limits. Choose **Always** to keep readings visible.
+Shows engine oil, coolant and gearbox oil as blue digits. Choose a horizontal row or a vertical column independently for the HUD and cluster, and adjust each display's position and size in **Drive Temps**. **Until warm** hides each sensor for the rest of the current READY cycle after it reaches its configured threshold. The starting thresholds are 80 °C for oil and coolant and 60 °C for gearbox oil. These are adjustable display thresholds, not model-specific operating limits. Choose **Always** to keep readings visible.
 
 Gearbox oil is available on supported vehicles, from a changing BMW temperature signal or a read-only EGS query. Missing readings are omitted. The demos show all three sample readings while stationary. The cluster overlay uses the full panel independently of the map. [Temperature source reference](projects/sound-drive/apps/drive_temps/NOTICE)
 
